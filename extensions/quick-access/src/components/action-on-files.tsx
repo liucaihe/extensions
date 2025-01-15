@@ -1,64 +1,46 @@
-import { Action, ActionPanel, Icon, LocalStorage, showHUD, showToast, Toast, trash, useNavigation } from "@raycast/api";
-import { alertDialog, refreshNumber } from "../hooks/hooks";
-import { LocalStorageKey } from "../utils/constants";
+import {
+  Action,
+  ActionPanel,
+  Application,
+  Clipboard,
+  closeMainWindow,
+  Icon,
+  showHUD,
+  useNavigation,
+} from "@raycast/api";
 import React from "react";
-import { copyFileByPath } from "../utils/applescript-utils";
-import { upRank } from "../search-pinned-directories";
 import { isDirectory } from "../utils/common-utils";
-import { FolderPage } from "./folder-page";
+import { FolderPageList } from "./folder-page-list";
+import { Layout, TypeDirectory } from "../types/types";
+import { FolderPageGrid } from "./folder-page-grid";
+import { layout } from "../types/preferences";
+import { copyFileByPath } from "../utils/applescript-utils";
+import { MutatePromise } from "@raycast/utils";
 
-export function ActionRemoveAllDirectories(props: { setRefresh: React.Dispatch<React.SetStateAction<number>> }) {
-  const { setRefresh } = props;
-  return (
-    <Action
-      icon={Icon.ExclamationMark}
-      title={`Remove All Directory`}
-      shortcut={{ modifiers: ["ctrl", "shift"], key: "x" }}
-      onAction={async () => {
-        await alertDialog(
-          Icon.ExclamationMark,
-          "Remove All Directories",
-          "Are you sure you  want to remove all directories?",
-          "Remove All",
-          async () => {
-            await LocalStorage.setItem(LocalStorageKey.LOCAL_PIN_DIRECTORY, JSON.stringify([]));
-            setRefresh(refreshNumber);
-            await showToast(Toast.Style.Success, "Success!", `All directories are removed.`);
-          }
-        );
-      }}
-    />
-  );
-}
-
-export function ActionsOnFile(props: {
+export function ActionsOnFiles(props: {
+  frontmostApp: Application | undefined;
   isTopFolder: boolean;
   primaryAction: string;
   name: string;
   path: string;
-  index: number;
-  setRefresh: React.Dispatch<React.SetStateAction<number>>;
+  mutate: MutatePromise<TypeDirectory[] | undefined, TypeDirectory[] | undefined>;
 }) {
   const { pop } = useNavigation();
-  const { isTopFolder, primaryAction, name, path, index, setRefresh } = props;
+  const { frontmostApp, isTopFolder, primaryAction, name, path, mutate } = props;
   return (
     <>
-      <PrimaryActionOnFile
-        primaryAction={primaryAction}
-        name={name}
-        path={path}
-        index={index}
-        setRefresh={setRefresh}
-      />
+      <PrimaryActionOnFile frontmostApp={frontmostApp} primaryAction={primaryAction} name={name} path={path} />
 
       <ActionPanel.Section>
-        <Action.OpenWith shortcut={{ modifiers: ["cmd"], key: "o" }} path={path} />
-        <Action.ShowInFinder
-          shortcut={{ modifiers: ["cmd"], key: "s" }}
-          path={path}
-          onShow={async () => await upRank(index, setRefresh)}
+        <Action.OpenWith shortcut={{ modifiers: ["shift", "cmd"], key: "o" }} path={path} />
+        <Action.ShowInFinder shortcut={{ modifiers: ["shift", "cmd"], key: "s" }} path={path} />
+        <Action.ToggleQuickLook shortcut={{ modifiers: ["cmd"], key: "y" }} />
+        <Action
+          icon={Icon.Repeat}
+          title={"Refresh Files"}
+          shortcut={{ modifiers: ["cmd"], key: "r" }}
+          onAction={mutate}
         />
-        <Action.ToggleQuickLook title={"Quick Look"} shortcut={{ modifiers: ["cmd"], key: "y" }} />
       </ActionPanel.Section>
       {!isTopFolder && (
         <Action
@@ -73,39 +55,44 @@ export function ActionsOnFile(props: {
           icon={Icon.ChevronDown}
           title={"Enter Folder"}
           shortcut={{ modifiers: ["cmd", "opt"], key: "arrowDown" }}
-          target={<FolderPage folderName={name} folderPath={path} primaryAction={primaryAction} />}
+          target={
+            layout === Layout.LIST ? (
+              <FolderPageList
+                frontmostApp={frontmostApp}
+                folderName={name}
+                folderPath={path}
+                primaryAction={primaryAction}
+              />
+            ) : (
+              <FolderPageGrid
+                frontmostApp={frontmostApp}
+                folderName={name}
+                folderPath={path}
+                primaryAction={primaryAction}
+              />
+            )
+          }
         />
       )}
       <ActionPanel.Section>
         <Action.CopyToClipboard
           title={"Copy Name"}
           content={name}
-          shortcut={{ modifiers: ["shift", "cmd"], key: "." }}
+          shortcut={{ modifiers: ["shift", "cmd"], key: "c" }}
         />
         <Action.CopyToClipboard
           title={"Copy Path"}
           content={path}
-          shortcut={{ modifiers: ["shift", "cmd"], key: "," }}
+          shortcut={{ modifiers: ["ctrl", "cmd"], key: "c" }}
         />
       </ActionPanel.Section>
 
       <ActionPanel.Section>
-        <Action
-          icon={Icon.Trash}
-          title={"Move to trash"}
+        <Action.Trash
           shortcut={{ modifiers: ["ctrl"], key: "x" }}
-          onAction={async () => {
-            await alertDialog(
-              Icon.Trash,
-              "Move to Trash",
-              `Are you sure you want to move ${name} to the trash?`,
-              "Move to trash",
-              async () => {
-                await trash(path);
-                setRefresh(refreshNumber);
-                await showToast(Toast.Style.Success, "Success!", `${name} is moved to the trash.`);
-              }
-            );
+          paths={path}
+          onTrash={async () => {
+            await mutate();
           }}
         />
       </ActionPanel.Section>
@@ -114,41 +101,54 @@ export function ActionsOnFile(props: {
 }
 
 export function PrimaryActionOnFile(props: {
+  frontmostApp: Application | undefined;
   primaryAction: string;
   name: string;
   path: string;
-  index: number;
-  setRefresh: React.Dispatch<React.SetStateAction<number>>;
 }) {
-  const { primaryAction, name, path, index, setRefresh } = props;
+  const { frontmostApp, primaryAction, name, path } = props;
   if (primaryAction === "Copy") {
     return (
       <>
         <Action
-          icon={Icon.Clipboard}
-          title={"Copy"}
+          icon={Icon.CopyClipboard}
+          title={"Copy to Clipboard"}
           onAction={async () => {
             await showHUD(`${name} is copied to clipboard`);
             await copyFileByPath(path);
-            await upRank(index, setRefresh);
           }}
         />
-        <Action.Open title={"Open"} target={path} onOpen={async () => await upRank(index, setRefresh)} />
+
+        <Action
+          icon={frontmostApp ? { fileIcon: frontmostApp.path } : Icon.Desktop}
+          title={frontmostApp ? `Paste to ${frontmostApp.name}` : "Paste"}
+          onAction={async () => {
+            await closeMainWindow();
+            await Clipboard.paste({ file: path });
+          }}
+        />
+        <Action.Open shortcut={{ modifiers: ["shift", "cmd"], key: "enter" }} title={"Open in Finder"} target={path} />
       </>
     );
   } else {
     return (
       <>
-        <Action.Open title={"Open"} target={path} onOpen={async () => await upRank(index, setRefresh)} />
         <Action
-          icon={Icon.Clipboard}
-          title={"Copy"}
+          icon={frontmostApp ? { fileIcon: frontmostApp.path } : Icon.Desktop}
+          title={frontmostApp ? `Paste to ${frontmostApp.name}` : "Paste"}
           onAction={async () => {
-            await showHUD(`${name} is copied to clipboard`);
-            await copyFileByPath(path);
-            await upRank(index, setRefresh);
+            await closeMainWindow();
+            await Clipboard.paste({ file: path });
           }}
         />
+        <Action
+          icon={Icon.CopyClipboard}
+          title={"Copy to Clipboard"}
+          onAction={async () => {
+            await copyFileByPath(path);
+          }}
+        />
+        <Action.Open shortcut={{ modifiers: ["shift", "cmd"], key: "enter" }} title={"Open in Finder"} target={path} />
       </>
     );
   }

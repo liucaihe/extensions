@@ -86,7 +86,7 @@ export const codeFileTypes: FileType[] = [
     inputContent: true,
   },
   {
-    name: "Json",
+    name: "JSON",
     extension: "json",
     languageId: "json",
     keywords: [],
@@ -165,3 +165,5 @@ export const scriptFileTypes: FileType[] = [
     inputContent: true,
   },
 ];
+
+export const allFileTypes = documentFileTypes.concat(codeFileTypes).concat(scriptFileTypes);

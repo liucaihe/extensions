@@ -6,7 +6,7 @@ This set of utilities exposes some of Raycast's native functionality to allow de
 
 ### getApplications
 
-Returns all applications that can open the file.
+Returns all applications that can open the file or URL.
 
 #### Signature
 
@@ -16,15 +16,35 @@ async function getApplications(path?: PathLike): Promise<Application[]>;
 
 #### Example
 
+{% tabs %}
+{% tab title="Find Application" %}
+
+```typescript
+import { getApplications, Application } from "@raycast/api";
+
+// it is a lot more reliable to get an app by its bundle ID than its path
+async function findApplication(bundleId: string): Application | undefined {
+  const installedApplications = await getApplications();
+  return installedApplications.filter((application) => application.bundleId == bundleId);
+}
+```
+
+{% endtab %}
+
+{% tab title="List Installed Applications" %}
+
 ```typescript
 import { getApplications } from "@raycast/api";
 
-export default async () => {
+export default async function Command() {
   const installedApplications = await getApplications();
   console.log("The following applications are installed on your Mac:");
   console.log(installedApplications.map((a) => a.name).join(", "));
-};
+}
 ```
+
+{% endtab %}
+{% endtabs %}
 
 #### Parameters
 
@@ -36,7 +56,7 @@ An array of [Application](#application).
 
 ### getDefaultApplication
 
-Returns the default application that the file would be opened with.
+Returns the default application that the file or URL would be opened with.
 
 #### Signature
 
@@ -49,10 +69,10 @@ async function getDefaultApplication(path: PathLike): Promise<Application>;
 ```typescript
 import { getDefaultApplication } from "@raycast/api";
 
-export default async () => {
+export default async function Command() {
   const defaultApplication = await getDefaultApplication(__filename);
   console.log(`Default application for JavaScript is: ${defaultApplication.name}`);
-};
+}
 ```
 
 #### Parameters
@@ -61,7 +81,32 @@ export default async () => {
 
 #### Return
 
-The default [Application](#application) that would open the file. Throws an error if no application was found.
+A Promise that resolves with the default [Application](#application) that would open the file or URL. If no application was found, the promise will be rejected.
+
+### getFrontmostApplication
+
+Returns the frontmost application.
+
+#### Signature
+
+```typescript
+async function getFrontmostApplication(): Promise<Application>;
+```
+
+#### Example
+
+```typescript
+import { getFrontmostApplication } from "@raycast/api";
+
+export default async function Command() => {
+  const frontmostApplication = await getFrontmostApplication();
+  console.log(`The frontmost application is: ${frontmostApplication.name}`);
+};
+```
+
+#### Return
+
+A Promise that resolves with the frontmost [Application](#application). If no application was found, the promise will be rejected.
 
 ### showInFinder
 
@@ -80,7 +125,9 @@ import { showInFinder } from "@raycast/api";
 import { homedir } from "os";
 import { join } from "path";
 
-showInFinder(join(homedir(), "Downloads"));
+export default async function Command() {
+  await showInFinder(join(homedir(), "Downloads"));
+}
 ```
 
 #### Parameters
@@ -109,11 +156,11 @@ import { writeFile } from "fs/promises";
 import { homedir } from "os";
 import { join } from "path";
 
-export default async () => {
+export default async function Command() {
   const file = join(homedir(), "Desktop", "yolo.txt");
   await writeFile(file, "I will be deleted soon!");
   await trash(file);
-};
+}
 ```
 
 #### Parameters
@@ -139,9 +186,9 @@ async function open(target: string, application?: Application | string): Promise
 ```typescript
 import { open } from "@raycast/api";
 
-export default async () => {
+export default async function Command() {
   await open("https://www.raycast.com", "com.google.Chrome");
-};
+}
 ```
 
 #### Parameters
@@ -151,6 +198,41 @@ export default async () => {
 #### Return
 
 A Promise that resolves when the target has been opened.
+
+### captureException
+
+Report the provided exception to the Developer Hub.
+This helps in handling failures gracefully while staying informed about the occurrence of the failure.
+
+#### Signature
+
+```typescript
+function captureException(exception: unknown): void;
+```
+
+#### Example
+
+```typescript
+import { open, captureException, showToast, Toast } from "@raycast/api";
+
+export default async function Command() {
+  const url = "https://www.raycast.com";
+  const app = "Google Chrome";
+  try {
+    await open(url, app);
+  } catch (e: unknown) {
+    captureException(e);
+    await showToast({
+      style: Toast.Style.Failure,
+      title: `Could not open ${url} in ${app}.`,
+    });
+  }
+}
+```
+
+#### Parameters
+
+<FunctionParametersTableFromJSDoc name="open" />
 
 ## Types
 

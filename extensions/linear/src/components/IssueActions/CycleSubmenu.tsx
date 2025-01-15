@@ -5,7 +5,7 @@ import { IssueResult } from "../../api/getIssues";
 
 import useCycles from "../../hooks/useCycles";
 
-import { getLinearClient } from "../../helpers/withLinearClient";
+import { getLinearClient } from "../../api/linearClient";
 import { formatCycle, FormattedCycle, getCycleOptions } from "../../helpers/cycles";
 
 import { UpdateIssueParams } from "./IssueActions";
@@ -93,6 +93,7 @@ export default function CycleSubmenus({
           getCycleOptions(cycles || []).map((cycle) => (
             <Action
               key={cycle.id}
+              autoFocus={cycle.id === currentCycle?.id}
               title={cycle.title}
               icon={{ source: cycle.icon }}
               onAction={() => moveToCycle(cycle)}

@@ -25,12 +25,28 @@ export interface DirectoryWithFileInfo {
   files: FileInfo[];
 }
 
+export interface TypeDirectory {
+  type: string;
+  directories: DirectoryWithFileInfo[];
+}
+
+export enum TypeDirectoryEnum {
+  OpenFolder = "Open Folder",
+  PinnedFolder = "Pinned Folder",
+}
+
 export enum FileType {
   FOLDER = "Folder",
   FILE = "File",
   IMAGE = "Image",
 }
+
 export enum DirectoryType {
-  DIRECTORY = "Directory",
+  FOLDER = "Folder",
   FILE = "File",
+}
+
+export enum Layout {
+  GRID = "Grid",
+  LIST = "List",
 }

@@ -1,16 +1,30 @@
-import { ActionPanel, Detail, Action, Icon, openExtensionPreferences } from "@raycast/api";
+import {
+  ActionPanel,
+  Detail,
+  Action,
+  Icon,
+  openExtensionPreferences,
+  updateCommandMetadata,
+  LaunchProps,
+} from "@raycast/api";
 import { useEffect } from "react";
 
 import checkAuthEffect from "../hooks/checkAuthEffect";
 import { bold } from "../markdown";
-import { sourcegraphInstance, Sourcegraph } from "../sourcegraph";
+import { sourcegraphInstance, Sourcegraph, instanceName } from "../sourcegraph";
 
 /**
  * InstanceCommand wraps the given command with the configuration for a specific
  * Sourcegraph instance.
  */
-export default function InstanceCommand({ Command }: { Command: React.FunctionComponent<{ src: Sourcegraph }> }) {
-  const tryCloudMessage = "Alternatively, you can try the Sourcegraph.com version of this command first.";
+export default function InstanceCommand({
+  Command,
+  props,
+}: {
+  Command: React.FunctionComponent<{ src: Sourcegraph; props?: LaunchProps }>;
+  props?: LaunchProps;
+}) {
+  const tryDotComMessage = "Alternatively, you can try the 'Sourcegraph.com' commands for public code first.";
 
   const setupGuideAction = (
     <Action.OpenInBrowser
@@ -26,16 +40,17 @@ export default function InstanceCommand({ Command }: { Command: React.FunctionCo
 
   const src = sourcegraphInstance();
   if (!src) {
+    updateCommandMetadata({ subtitle: null });
     return (
       <Detail
-        navigationTitle="No Sourcegraph Self-Hosted instance configured"
+        navigationTitle="No Sourcegraph connection configured"
         markdown={`${bold(
-          `⚠️ No Sourcegraph Sourcegraph Self-Hosted instance configured`
-        )} - please set one up in the extension preferences to use this command!\n\n${tryCloudMessage}`}
+          `⚠️ No Sourcegraph connection configured`,
+        )} - please set one up in the extension preferences to use this command!\n\n${tryDotComMessage}`}
         actions={
           <ActionPanel>
-            {setupGuideAction}
             {openPreferencesAction}
+            {setupGuideAction}
           </ActionPanel>
         }
       />
@@ -44,39 +59,46 @@ export default function InstanceCommand({ Command }: { Command: React.FunctionCo
   try {
     new URL(src.instance);
   } catch (e) {
+    updateCommandMetadata({ subtitle: null });
     return (
       <Detail
-        navigationTitle="Invalid Sourcegraph Self-Hosted URL"
+        navigationTitle="Invalid Sourcegraph URL"
         markdown={`${bold(
-          `⚠️ Sourcegraph Self-Hosted URL '${src.instance}' is invalid:`
-        )} ${e}\n\nUpdate it in the extension preferences!\n\n${tryCloudMessage}`}
+          `⚠️ Sourcegraph URL '${src.instance}' is invalid:`,
+        )} ${e}\n\nUpdate it in the extension preferences!\n\n${tryDotComMessage}`}
         actions={
           <ActionPanel>
-            {openPreferencesAction}
             {setupGuideAction}
+            {openPreferencesAction}
           </ActionPanel>
         }
       />
     );
   }
+
+  updateCommandMetadata({
+    // We've already checked this URL is valid, so we can reliably use it here.
+    subtitle: instanceName(src),
+  });
+
   if (!src.token) {
     return (
       <Detail
-        navigationTitle="Invalid Sourcegraph Self-Hosted access token"
+        navigationTitle="Invalid Sourcegraph access token"
         markdown={`${bold(
-          `⚠️ A token is required for Sourcegraph Self-Hosted instance '${src.instance}'`
-        )} - please add an access token for Sourcegraph Self-Hosted in the extension preferences!\n\n${tryCloudMessage}`}
+          `⚠️ A token is required for Sourcegraph connection '${src.instance}'`,
+        )} - please add an access token for this Sourcegraph connection in the extension preferences!\n\n${tryDotComMessage}`}
         actions={
           <ActionPanel>
-            {openPreferencesAction}
             {setupGuideAction}
+            {openPreferencesAction}
           </ActionPanel>
         }
       />
     );
   }
 
-  useEffect(checkAuthEffect(src));
+  useEffect(checkAuthEffect(src), []);
 
-  return <Command src={src} />;
+  return <Command src={src} props={props} />;
 }

@@ -1,8 +1,43 @@
 # World Clock Changelog
 
-## [Update List layout] - 2022-06-27
+## [Fix Star Half Hour Time Zone] - 2024-10-04
 
-- Update List layout: Add clock image in List Detail
+- Fix the bug that the half-hour time zone is not included in starred time zones
+
+## [Fix Half Hour Time Zone] - 2024-09-24
+
+- Fix the bug that the half-hour time zone is not included in current time
+
+## [Update Refresh interval] - 2024-07-30
+
+- Update the refresh interval to 10 seconds
+
+## [Update Extension Icon] - 2024-07-30
+
+- Support set avatar for starred time zones
+- Support duplicate starred time zones
+- Show the first starred time zones in the menu bar
+- Update the extension and command icons
+
+## [Update Memo Icon] - 2023-10-16
+
+- Now the Grid view will show the memo icon
+
+## [Sort Time Zones] - 2023-05-30
+
+- Starred time zones support sorting
+
+## [Update Date Format] - 2023-01-02
+
+- Add more date formats
+
+## [Update Raycast API] - 2022-12-02
+
+- Update Raycast API version to 1.44.0
+
+## [Add Menu Bar command] - 2022-09-05
+
+- Add Menu Bar command: Query World Time
 
 ## [Add Grid layout] - 2022-06-22
 

@@ -1,49 +1,32 @@
+import { useCachedPromise } from "@raycast/utils";
 import getNews from "../utils/getNews";
-import { useState, useEffect } from "react";
 import type { Article, Category } from "../types/news.types";
 
-const useNews = () => {
-  const [news, setNews] = useState<Array<Article>>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<boolean>(false);
-
-  useEffect(() => {
-    const fetchNews = async () => {
-      let data: any = null;
-
-      try {
-        data = await getNews();
-      } catch (error) {
-        setError(true);
-        return error;
-      }
-
-      const articles: Article[] = data.map(
-        (article: any): Article => ({
-          title: article.headline,
-          description: article.description,
-          url: article.links.web.href,
-          imageURL: article.images[0].url,
-          imageCaption: article.images[0].caption,
-          publishedAt: article.published,
-          categories: article.categories.map(
-            (category: any): Category => ({
-              id: category.id,
-              name: category.description,
-              type: category.type,
-            })
-          ),
-        })
-      );
-
-      setNews(articles);
-      setLoading(false);
-    };
-
-    fetchNews();
-  }, []);
-
-  return { news, loading, error };
+const fetchNews = async (league: string) => {
+  const newsData = await getNews({ league });
+  const articles: Article[] = newsData.map(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (article: any): Article => ({
+      title: article.headline,
+      description: article.description,
+      url: article.links.web.href,
+      imageURL: article.images[0].url,
+      imageCaption: article.images[0].caption,
+      publishedAt: article.published,
+      categories: article.categories.map(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (category: any): Category => ({
+          id: category.id,
+          name: category.description,
+          type: category.type,
+        }),
+      ),
+    }),
+  );
+  return articles;
 };
+
+const useNews = (league: string) =>
+  useCachedPromise(fetchNews, [league], { failureToastOptions: { title: "Could not fetch news" } });
 
 export default useNews;

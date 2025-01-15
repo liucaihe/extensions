@@ -1,8 +1,7 @@
 import { DecorationFont } from "../types/types";
 
 export enum LocalStorageKey {
-  STAR_TEXT_FONT = "Star text font",
-  DETAIL_KEY = "Detail Key",
+  DETAIL_KEY = "Show Detail",
 }
 export const fontFamily: DecorationFont[] = [
   { title: "Bold serif", value: "bold_serif", icon: "bold_serif.svg" },
@@ -25,3 +24,5 @@ export const fontFamily: DecorationFont[] = [
   { title: "Parenthesized", value: "parenthesized", icon: "parenthesized.svg" },
   { title: "Fullwidth", value: "fullwidth", icon: "fullwidth.svg" },
 ];
+
+export const SEARCH_PLACEHOLDER = "Search fonts";

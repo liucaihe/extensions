@@ -1,34 +1,27 @@
-import { List, Toast, showToast } from "@raycast/api";
-import type { Player } from "../types/roster.types";
+import { List } from "@raycast/api";
 import useRoster from "../hooks/useRoster";
 import { useState } from "react";
 import PlayerComponent from "../components/Player";
 
 type RosterArgs = {
   id: number;
+  league: string;
 };
 
-const Roster = ({ id: id }: RosterArgs) => {
-  const data = useRoster({ id: id });
-  const [isShowingDetail, setIsShowingDetail] = useState<boolean>(false);
-
-  if (data.error) {
-    showToast(Toast.Style.Failure, "Failed to get roster");
-    data.loading = false;
-  }
+const Roster = ({ id, league }: RosterArgs) => {
+  const { data, isLoading } = useRoster({ id, league });
+  const [isShowingDetail, setIsShowingDetail] = useState<boolean>(true);
 
   return (
-    <List isLoading={data.loading} isShowingDetail={isShowingDetail}>
-      {data.roster.map((player: Player) => {
-        return (
-          <PlayerComponent
-            key={player.id}
-            player={player}
-            setIsShowingDetail={setIsShowingDetail}
-            isShowingDetail={isShowingDetail}
-          />
-        );
-      })}
+    <List isLoading={isLoading} isShowingDetail={isShowingDetail}>
+      {data?.map((player) => (
+        <PlayerComponent
+          key={player.id}
+          player={player}
+          setIsShowingDetail={setIsShowingDetail}
+          isShowingDetail={isShowingDetail}
+        />
+      ))}
     </List>
   );
 };

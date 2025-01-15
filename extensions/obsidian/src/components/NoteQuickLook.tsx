@@ -1,68 +1,23 @@
-import { Detail, ActionPanel, useNavigation } from "@raycast/api";
-import { useEffect, useState } from "react";
-
+import { Action, ActionPanel, Detail, Icon } from "@raycast/api";
 import { Note, Vault } from "../utils/interfaces";
+import { filterContent } from "../utils/utils";
 import { NoteActions, OpenNoteActions } from "../utils/actions";
-import { isNotePinned } from "../utils/pinNoteUtils";
-import { NoteAction } from "../utils/constants";
-import { filterContent, getNoteFileContent } from "../utils/utils";
+import { renewCache } from "../utils/data/cache";
 
-export function NoteQuickLook(props: {
-  showTitle: boolean;
-  note: Note | undefined;
-  vault: Vault;
-  actionCallback?: (action: NoteAction) => void;
-}) {
-  const { note, showTitle, vault, actionCallback } = props;
-  const { pop } = useNavigation();
-
-  let noteContent = note?.content;
-  noteContent = filterContent(noteContent ?? "");
-
-  const [pinned, setPinned] = useState(note ? isNotePinned(note, vault) : false);
-  const [content, setContent] = useState(noteContent);
-
-  function reloadContent() {
-    if (note) {
-      const newContent = getNoteFileContent(note.path);
-      note.content = newContent;
-      setContent(newContent);
-    }
-  }
-
-  useEffect(reloadContent, [note]);
-
-  function quickLookActionCallback(action: NoteAction, value: any = undefined) {
-    if (actionCallback) {
-      actionCallback(action);
-    }
-    switch (+action) {
-      case NoteAction.Pin:
-        setPinned(!pinned);
-        break;
-      case NoteAction.Delete:
-        pop();
-        break;
-      case NoteAction.Edit:
-        reloadContent();
-        break;
-      case NoteAction.Append:
-        reloadContent();
-    }
-  }
+export function NoteQuickLook(props: { showTitle: boolean; note: Note; vault: Vault; allNotes: Note[] }) {
+  const { note, showTitle, allNotes, vault } = props;
 
   return (
     <Detail
       isLoading={note === undefined}
-      navigationTitle={showTitle ? (pinned ? "⭐ " + note?.title : note?.title) : ""}
-      markdown={content}
+      navigationTitle={showTitle ? note.title : ""}
+      markdown={filterContent(note.content)}
       actions={
-        note ? (
-          <ActionPanel>
-            <OpenNoteActions note={note} vault={vault} actionCallback={quickLookActionCallback} />
-            <NoteActions note={note} vault={vault} actionCallback={quickLookActionCallback} />
-          </ActionPanel>
-        ) : null
+        <ActionPanel>
+          <OpenNoteActions note={note} notes={allNotes} vault={vault} />
+          <NoteActions notes={allNotes} note={note} vault={vault} />
+          <Action title="Reload Notes" icon={Icon.ArrowClockwise} onAction={() => renewCache(vault)} />
+        </ActionPanel>
       }
     />
   );

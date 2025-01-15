@@ -1,8 +1,10 @@
 import { Color, Icon, LocalStorage } from "@raycast/api";
+import { Md5 } from "ts-md5";
 import { buildRegexp, calculateCharacter, camelCaseToOtherCase, isEmpty, regexPunctuation } from "./utils";
-import { Md5 } from "ts-md5/dist/md5";
 
-enum Tags {
+import title from "title";
+
+export enum Tags {
   ANNOTATION = "Annotation",
   CASE = "Case",
   CODER = "Coder",
@@ -88,20 +90,23 @@ export interface Taction {
 }
 
 export class Shortcut {
+  id: string;
   info: ShortcutInfo;
   tactions: Taction[];
 
   constructor(
-    info = {
+    info: ShortcutInfo = {
       name: "",
       id: "",
+      iconColor: Color.Blue,
       icon: icons[0][1],
       source: ShortcutSource.USER,
       visibility: true,
       tag: [] as string[],
     },
-    tactions: Taction[] = []
+    tactions: Taction[] = [],
   ) {
+    this.id = info.id;
     this.info = info;
     this.tactions = tactions;
   }
@@ -236,17 +241,17 @@ function tactionAffix(input: string, taction: Taction) {
   output = output.replaceAll(/(\$YEAR\$)/g, date.getFullYear() + "");
   output = output.replaceAll(
     /(\$MONTH\$)/g,
-    date.getMonth() + 1 < 10 ? "0" + (date.getMonth() + 1) : date.getMonth() + 1 + ""
+    date.getMonth() + 1 < 10 ? "0" + (date.getMonth() + 1) : date.getMonth() + 1 + "",
   );
   output = output.replaceAll(/(\$DAY\$)/g, date.getDate() < 10 ? "0" + date.getDate() : date.getDate() + "");
   output = output.replaceAll(/(\$HOUR\$)/g, date.getHours() < 10 ? "0" + date.getHours() : date.getHours() + "");
   output = output.replaceAll(
     /(\$MINUTE\$)/g,
-    date.getMinutes() < 10 ? "0" + date.getMinutes() : date.getMinutes() + ""
+    date.getMinutes() < 10 ? "0" + date.getMinutes() : date.getMinutes() + "",
   );
   output = output.replaceAll(
     /(\$SECOND\$)/g,
-    date.getSeconds() < 10 ? "0" + date.getSeconds() : date.getSeconds() + ""
+    date.getSeconds() < 10 ? "0" + date.getSeconds() : date.getSeconds() + "",
   );
   output = output.replaceAll(/(\$TIMESTAMP\$)/g, date.getTime() + "");
 
@@ -322,7 +327,7 @@ function tactionCase(input: string, taction: Taction) {
       return input.toLowerCase();
     }
     case Cases.TITLE: {
-      return input.replace(input[0], input[0].toUpperCase());
+      return title(input);
     }
     case Cases.CAMEL: {
       const inputArray = input.toLowerCase().split(regexPunctuation);

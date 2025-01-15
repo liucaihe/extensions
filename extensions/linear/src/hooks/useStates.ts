@@ -1,24 +1,8 @@
-import { getLinearClient } from "../helpers/withLinearClient";
+import { getLinearClient } from "../api/linearClient";
 import { useCachedPromise } from "@raycast/utils";
 
 export default function useStates(teamId?: string, config?: { execute?: boolean }) {
   const { linearClient } = getLinearClient();
-
-  const {
-    data: allStates,
-    error: allStatesError,
-    isLoading: isLoadingAllStates,
-  } = useCachedPromise(
-    async () => {
-      const states = await linearClient.workflowStates();
-      return states.nodes;
-    },
-    [],
-    {
-      initialData: [],
-      execute: config?.execute !== false,
-    }
-  );
 
   const {
     data: states,
@@ -33,8 +17,8 @@ export default function useStates(teamId?: string, config?: { execute?: boolean 
     {
       initialData: [],
       execute: config?.execute !== false,
-    }
+    },
   );
 
-  return { allStates, states, isLoadingAllStates, isLoadingStates, allStatesError, statesError };
+  return { states, isLoadingStates, statesError };
 }

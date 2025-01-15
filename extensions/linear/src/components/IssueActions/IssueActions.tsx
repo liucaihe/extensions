@@ -1,12 +1,22 @@
-import { Action, Icon, ActionPanel, showToast, Toast, confirmAlert, Color, useNavigation } from "@raycast/api";
+import {
+  Action,
+  Icon,
+  ActionPanel,
+  showToast,
+  Toast,
+  confirmAlert,
+  Color,
+  useNavigation,
+  Keyboard,
+} from "@raycast/api";
 import { MutatePromise } from "@raycast/utils";
 import { IssuePriorityValue, User } from "@linear/sdk";
 import { IssueUpdateInput } from "@linear/sdk/dist/_generated_documents";
+import { format } from "date-fns";
 
-import { IssueResult, IssueDetailResult } from "../../api/getIssues";
+import { IssueResult, IssueDetailResult, Attachment } from "../../api/getIssues";
 
-import { getLinearClient } from "../../helpers/withLinearClient";
-import { isLinearInstalled } from "../../helpers/isLinearInstalled";
+import { getLinearClient } from "../../api/linearClient";
 
 import { getEstimateScale } from "../../helpers/estimates";
 import { getErrorMessage } from "../../helpers/errors";
@@ -22,14 +32,23 @@ import ParentIssueSubmenu from "./ParentIssueSubmenu";
 import StateSubmenu from "./StateSubmenu";
 import EditIssueForm from "../EditIssueForm";
 import IssueComments from "../IssueComments";
+import IssueCommentForm from "../IssueCommentForm";
+import IssueAttachments from "../IssueAttachments";
+import CreateSubIssues from "../CreateSubIssues";
+import MilestoneSubmenu from "./MilestoneSubmenu";
+import OpenInLinear from "../OpenInLinear";
+import { useState } from "react";
+import useUsers from "../../hooks/useUsers";
+import { IssueAttachmentsForm } from "../IssueAttachmentsForm";
 
 type IssueActionsProps = {
   issue: IssueResult;
   mutateList?: MutatePromise<IssueResult[] | undefined>;
   mutateDetail?: MutatePromise<IssueDetailResult>;
   mutateSubIssues?: MutatePromise<IssueResult[] | undefined>;
+  showAttachmentsAction?: boolean;
+  attachments?: Attachment[];
   priorities: IssuePriorityValue[] | undefined;
-  users: User[] | undefined;
   me: User | undefined;
 };
 
@@ -48,8 +67,9 @@ export default function IssueActions({
   mutateList,
   mutateSubIssues,
   mutateDetail,
+  showAttachmentsAction,
+  attachments,
   priorities,
-  users,
   me,
 }: IssueActionsProps) {
   const { pop } = useNavigation();
@@ -76,7 +96,7 @@ export default function IssueActions({
     try {
       await showToast({ style: Toast.Style.Animated, title: animatedTitle });
 
-      const asyncUpdate = linearClient.issueUpdate(issue.id, payload);
+      const asyncUpdate = linearClient.updateIssue(issue.id, payload);
 
       await Promise.all([
         asyncUpdate,
@@ -149,7 +169,7 @@ export default function IssueActions({
       try {
         await showToast({ style: Toast.Style.Animated, title: "Deleting issue" });
 
-        const asyncUpdate = linearClient.issueDelete(issue.id);
+        const asyncUpdate = linearClient.deleteIssue(issue.id);
 
         if (mutateDetail) {
           pop();
@@ -286,6 +306,57 @@ export default function IssueActions({
     });
   }
 
+  async function setDueDate(dueDate: Date | null) {
+    updateIssue({
+      animatedTitle: dueDate ? "Setting due date" : "Removing due date",
+      payload: { dueDate },
+      optimisticUpdate(issue) {
+        return {
+          ...issue,
+          dueDate,
+        };
+      },
+      rollbackUpdate(issue) {
+        return {
+          ...issue,
+          dueDate: issue.dueDate,
+        };
+      },
+      successTitle: dueDate ? "Set due date" : "Removed due date",
+      successMessage: dueDate ? `${issue.identifier} due date set to ${format(dueDate, "MM/dd/yyyy")}` : "",
+      errorTitle: "Failed to set due date",
+    });
+  }
+
+  async function setReminder(reminderDate: Date | null) {
+    if (!reminderDate) {
+      await showToast({ style: Toast.Style.Failure, title: "Failed setting reminder" });
+      return;
+    }
+
+    try {
+      await showToast({ style: Toast.Style.Animated, title: "Setting reminder" });
+
+      await linearClient.issueReminder(issue.id, reminderDate);
+
+      if (mutateDetail) {
+        pop();
+      }
+
+      await showToast({
+        style: Toast.Style.Success,
+        title: "Reminder set",
+        message: `${issue.identifier} reminder set to ${format(reminderDate, "MM/dd/yyyy")}`,
+      });
+    } catch (error) {
+      await showToast({
+        style: Toast.Style.Failure,
+        title: "Failed to set reminder",
+        message: getErrorMessage(error),
+      });
+    }
+  }
+
   function refresh() {
     if (mutateList) {
       mutateList();
@@ -300,13 +371,12 @@ export default function IssueActions({
     }
   }
 
+  const [userQuery, setUserQuery] = useState<string>("");
+  const { users, supportsUserTypeahead, isLoadingUsers } = useUsers(userQuery);
+
   return (
     <>
-      {isLinearInstalled ? (
-        <Action.Open title="Open Issue in Linear" icon="linear.png" target={issue.url} application="Linear" />
-      ) : (
-        <Action.OpenInBrowser url={issue.url} title="Open Issue in Browser" />
-      )}
+      <OpenInLinear title="Open Issue" url={issue.url} />
 
       <ActionPanel.Section>
         <Action.Push
@@ -316,7 +386,6 @@ export default function IssueActions({
           target={
             <EditIssueForm
               priorities={priorities}
-              users={users}
               me={me}
               issue={issue}
               mutateList={mutateList}
@@ -336,6 +405,7 @@ export default function IssueActions({
             {priorities.map((priority) => (
               <Action
                 key={priority.priority}
+                autoFocus={priority.priority === issue.priority}
                 title={priority.label}
                 icon={{ source: priorityIcons[priority.priority] }}
                 onAction={() => setPriority(priority)}
@@ -344,26 +414,30 @@ export default function IssueActions({
           </ActionPanel.Submenu>
         ) : null}
 
-        {users && users.length > 0 ? (
-          <ActionPanel.Submenu
-            icon={Icon.AddPerson}
-            title="Assign To"
-            shortcut={{ modifiers: ["cmd", "shift"], key: "a" }}
-          >
-            {users.map((user) => (
-              <Action
-                key={user.id}
-                title={`${user.displayName} (${user.email})`}
-                icon={getUserIcon(user)}
-                onAction={() => setAssignee(user)}
-              />
-            ))}
-          </ActionPanel.Submenu>
-        ) : null}
+        <ActionPanel.Submenu
+          icon={Icon.AddPerson}
+          title="Assign To"
+          shortcut={{ modifiers: ["cmd", "shift"], key: "a" }}
+          {...(supportsUserTypeahead && {
+            onSearchTextChange: setUserQuery,
+            isLoading: isLoadingUsers,
+            throttle: true,
+          })}
+        >
+          {users?.map((user) => (
+            <Action
+              key={user.id}
+              autoFocus={user.id === issue.assignee?.id}
+              title={`${user.displayName} (${user.email})`}
+              icon={getUserIcon(user)}
+              onAction={() => setAssignee(user)}
+            />
+          ))}
+        </ActionPanel.Submenu>
 
         {me ? (
           <Action
-            title={isAssignedToMe ? "Un-assign from Me" : "Assign to Me"}
+            title={isAssignedToMe ? "Un-Assign From Me" : "Assign to Me"}
             icon={getUserIcon(me)}
             shortcut={{ modifiers: ["cmd", "shift"], key: "i" }}
             onAction={() => setToMe(isAssignedToMe ? null : me)}
@@ -377,10 +451,29 @@ export default function IssueActions({
             shortcut={{ modifiers: ["cmd", "shift"], key: "e" }}
           >
             {scale.map(({ estimate, label }) => {
-              return <Action key={estimate} title={label} onAction={() => setEstimate({ estimate, label })} />;
+              return (
+                <Action
+                  key={estimate}
+                  autoFocus={estimate === issue.estimate}
+                  title={label}
+                  onAction={() => setEstimate({ estimate, label })}
+                />
+              );
             })}
           </ActionPanel.Submenu>
         ) : null}
+
+        <Action.PickDate
+          title="Set Due Date"
+          shortcut={{ modifiers: ["opt", "shift"], key: "d" }}
+          onChange={setDueDate}
+        />
+
+        <Action.PickDate
+          title="Set Reminder"
+          shortcut={{ modifiers: ["cmd", "shift"], key: "h" }}
+          onChange={setReminder}
+        />
 
         <LabelSubmenu issue={issue} updateIssue={updateIssue} />
 
@@ -388,11 +481,13 @@ export default function IssueActions({
 
         <ProjectSubmenu issue={issue} updateIssue={updateIssue} />
 
+        <MilestoneSubmenu issue={issue} updateIssue={updateIssue} />
+
         <ParentIssueSubmenu issue={issue} updateIssue={updateIssue} />
 
         <Action
           title="Delete Issue"
-          shortcut={{ modifiers: ["cmd", "shift"], key: "d" }}
+          shortcut={Keyboard.Shortcut.Common.Remove}
           icon={Icon.Trash}
           style={Action.Style.Destructive}
           onAction={() => deleteIssue()}
@@ -405,6 +500,36 @@ export default function IssueActions({
           icon={Icon.List}
           target={<SubIssues issue={issue} mutateList={mutateList} />}
           shortcut={{ modifiers: ["cmd", "shift"], key: "m" }}
+        />
+
+        <Action.Push
+          title="Break Issues Into Sub-Issues"
+          icon={Icon.Stars}
+          target={<CreateSubIssues issue={issue} />}
+          shortcut={{ modifiers: ["opt", "shift"], key: "m" }}
+        />
+
+        {showAttachmentsAction ? (
+          <Action.Push
+            title="Show Issue Links"
+            icon={Icon.Link}
+            target={<IssueAttachments attachments={attachments ?? []} issue={issue} />}
+            shortcut={{ modifiers: ["cmd", "opt", "shift"], key: "l" }}
+          />
+        ) : null}
+
+        <Action.Push
+          title="Add Attachments and Links"
+          icon={Icon.NewDocument}
+          target={<IssueAttachmentsForm issue={issue} />}
+          shortcut={{ modifiers: ["cmd", "opt", "shift"], key: "a" }}
+        />
+
+        <Action.Push
+          title="Add Comment"
+          icon={Icon.Plus}
+          target={<IssueCommentForm issue={issue} />}
+          shortcut={{ modifiers: ["cmd", "opt", "shift"], key: "n" }}
         />
 
         <Action.Push

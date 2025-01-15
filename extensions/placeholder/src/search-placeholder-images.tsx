@@ -1,23 +1,22 @@
-import { getPreferenceValues, Grid, Image, List } from "@raycast/api";
-import React, { useState } from "react";
-import { getPlaceholderImages } from "./hooks/hooks";
-import { Preferences } from "./types/preferences";
-import { PlaceholderEmptyView } from "./components/placeholder-empty-view";
-import { ActionOnPlaceholderImage } from "./components/action-on-placeholder-image";
-import Mask = Image.Mask;
+import { useState } from "react";
+import { Grid, Image, List } from "@raycast/api";
+import usePlaceholderImages from "@/hooks/use-placeholder-images";
+import { ActionOnPlaceholderImage } from "@/components/action-on-placeholder-image";
+import { PlaceholderEmptyView } from "@/components/placeholder-empty-view";
+import { columns, layout, perPage } from "@/utils/preferences";
+import { buildGridContentImageURL, prefix } from "@/utils/urls";
 
 export default function SearchPlaceholderImages() {
-  const preferences = getPreferenceValues<Preferences>();
   const [page, setPage] = useState<number>(1);
-  const { picsumImages, isLoading } = getPlaceholderImages(page, parseInt(preferences.perPage));
+  const { picsumImages, isLoading } = usePlaceholderImages(page, parseInt(perPage));
 
-  return preferences.layout === "List" ? (
+  return layout === "List" ? (
     <List
       isShowingDetail={picsumImages.length !== 0 && !isLoading}
       isLoading={isLoading}
-      searchBarPlaceholder={"Search images"}
+      searchBarPlaceholder={"Search placeholders"}
     >
-      <PlaceholderEmptyView layout={preferences.layout} />
+      <PlaceholderEmptyView layout={layout} />
 
       {picsumImages.map((value) => {
         return (
@@ -25,8 +24,8 @@ export default function SearchPlaceholderImages() {
             key={value.download_url}
             icon={{
               source: prefix + value.id + "/64/64",
-              mask: Mask.RoundedRectangle,
-              fallback: { light: "picsum-icon.svg", dark: "picsum-icon@dark.svg" },
+              mask: Image.Mask.RoundedRectangle,
+              fallback: { light: "picsum-icon.png", dark: "picsum-icon@dark.png" },
             }}
             title={{ value: value.author, tooltip: "Author" }}
             detail={
@@ -46,47 +45,28 @@ export default function SearchPlaceholderImages() {
                 }
               />
             }
-            actions={
-              <ActionOnPlaceholderImage picsumImage={value} preferences={preferences} page={page} setPage={setPage} />
-            }
+            actions={<ActionOnPlaceholderImage picsumImage={value} page={page} setPage={setPage} />}
           />
         );
       })}
     </List>
   ) : (
-    <Grid itemSize={preferences.itemSize as Grid.ItemSize} isLoading={isLoading} searchBarPlaceholder={"Search images"}>
-      <PlaceholderEmptyView layout={preferences.layout} />
+    <Grid columns={parseInt(columns)} isLoading={isLoading} searchBarPlaceholder={"Search placeholders"}>
+      <PlaceholderEmptyView layout={layout} />
 
       {picsumImages.map((value) => {
         return (
           <Grid.Item
             key={value.download_url}
             content={{
-              value: buildGridContentImageURL(preferences.itemSize as Grid.ItemSize, value.id),
+              value: buildGridContentImageURL(parseInt(columns), value.id),
               tooltip: value.width + " ✕ " + value.height,
             }}
             title={value.author}
-            actions={
-              <ActionOnPlaceholderImage picsumImage={value} preferences={preferences} page={page} setPage={setPage} />
-            }
+            actions={<ActionOnPlaceholderImage picsumImage={value} page={page} setPage={setPage} />}
           />
         );
       })}
     </Grid>
   );
 }
-
-const prefix = "https://picsum.photos/id/";
-const buildGridContentImageURL = (itemSize: Grid.ItemSize, id: string) => {
-  switch (itemSize) {
-    case Grid.ItemSize.Large: {
-      return prefix + id + "/500";
-    }
-    case Grid.ItemSize.Medium: {
-      return prefix + id + "/300";
-    }
-    case Grid.ItemSize.Small: {
-      return prefix + id + "/200";
-    }
-  }
-};

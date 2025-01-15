@@ -2,15 +2,15 @@
 
 Our `Form` component provides great user experience to collect some data from a user and submit it for extensions needs.
 
-![](../../.gitbook/assets/example-doppler-share-secrets.png)
+![](../../.gitbook/assets/example-doppler-share-secrets.webp)
 
 ## Two Types of Items: Controlled vs. Uncontrolled
 
 Items in React can be one of two types: controlled or uncontrolled.
 
-An uncontrolled item is the simpler of the two. It’s the closest to a plain HTML input. React puts it on the page, and Raycast keeps track of the rest. Uncontrolled inputs require less code, but make it harder to do certain things.
+An uncontrolled item is the simpler of the two. It's the closest to a plain HTML input. React puts it on the page, and Raycast keeps track of the rest. Uncontrolled inputs require less code, but make it harder to do certain things.
 
-With a controlled item, YOU explicitly control the `value` that the item displays. You have to write code to respond to changes with defining `onChange` callback, store the current `value` somewhere, and pass that value back to the item to be displayed. It’s a feedback loop with your code in the middle. It’s more manual work to wire these up, but they offer the most control.
+With a controlled item, YOU explicitly control the `value` that the item displays. You have to write code to respond to changes with defining `onChange` callback, store the current `value` somewhere, and pass that value back to the item to be displayed. It's a feedback loop with your code in the middle. It's more manual work to wire these up, but they offer the most control.
 
 You can take look at these two styles below under each of the supported items.
 
@@ -18,15 +18,67 @@ You can take look at these two styles below under each of the supported items.
 
 Before submitting data, it is important to ensure all required form controls are filled out, in the correct format.
 
-In Raycast, validation can be fully controlled from the API. To keep the same behavior as we have natively, the proper way of usage is to validate a `value` in the `onBlur` callback, update the `error` of the item and keep track of updates with the `onChange` callback to drop the `error` value.
+In Raycast, validation can be fully controlled from the API. To keep the same behavior as we have natively, the proper way of usage is to validate a `value` in the `onBlur` callback, update the `error` of the item and keep track of updates with the `onChange` callback to drop the `error` value. The [useForm](../../utils-reference/react-hooks/useForm.md) utils hook nicely wraps this behaviour and is the recommended way to do deal with validations.
 
-![](../../.gitbook/assets/form-validation.png)
+![](../../.gitbook/assets/form-validation.webp)
 
 {% hint style="info" %}
 Keep in mind that if the Form has any errors, the [`Action.SubmitForm`](./actions.md#action.submitform) `onSubmit` callback won't be triggered.
 {% endhint %}
 
 #### Example
+
+{% tabs %}
+
+{% tab title="FormValidationWithUtils.tsx" %}
+
+```tsx
+import { Action, ActionPanel, Form, showToast, Toast } from "@raycast/api";
+import { useForm, FormValidation } from "@raycast/utils";
+
+interface SignUpFormValues {
+  name: string;
+  password: string;
+}
+
+export default function Command() {
+  const { handleSubmit, itemProps } = useForm<SignUpFormValues>({
+    onSubmit(values) {
+      showToast({
+        style: Toast.Style.Success,
+        title: "Yay!",
+        message: `${values.name} account created`,
+      });
+    },
+    validation: {
+      name: FormValidation.Required,
+      password: (value) => {
+        if (value && value.length < 8) {
+          return "Password must be at least 8 symbols";
+        } else if (!value) {
+          return "The item is required";
+        }
+      },
+    },
+  });
+  return (
+    <Form
+      actions={
+        <ActionPanel>
+          <Action.SubmitForm title="Submit" onSubmit={handleSubmit} />
+        </ActionPanel>
+      }
+    >
+      <Form.TextField title="Full Name" placeholder="Tim Cook" {...itemProps.name} />
+      <Form.PasswordField title="New Password" {...itemProps.password} />
+    </Form>
+  );
+}
+```
+
+{% endtab %}
+
+{% tab title="FormValidationWithoutUtils.tsx" %}
 
 ```typescript
 import { Form } from "@raycast/api";
@@ -53,7 +105,7 @@ export default function Command() {
       <Form.TextField
         id="nameField"
         title="Full Name"
-        placeholder="Enter your name"
+        placeholder="Tim Cook"
         error={nameError}
         onChange={dropNameErrorIfNeeded}
         onBlur={(event) => {
@@ -93,17 +145,19 @@ function validatePassword(value: string): boolean {
 }
 ```
 
+{% endtab %}
+
+{% endtabs %}
+
 ## Drafts
 
-Drafts are a mechanism to preserve filled-in inputs (but not yet submitted) when an end-user exits the command. To enable this mechanism, set the `enableDrafts` prop on your Form and populate the initial values of the Form with the top-level props `draftValues`.
+Drafts are a mechanism to preserve filled-in inputs (but not yet submitted) when an end-user exits the command. To enable this mechanism, set the `enableDrafts` prop on your Form and populate the initial values of the Form with the [top-level prop `draftValues`](../../information/lifecycle/README.md#launchprops).
 
-<InterfaceTableFromJSDoc name="FormLaunchProps" />
-
-![](../../.gitbook/assets/form-drafts.png)
+![](../../.gitbook/assets/form-drafts.webp)
 
 {% hint style="info" %}
 
-- Drafts for forms nested in navigation is not supported yet. In this case you will see a warning about it.
+- Drafts for forms nested in navigation are not supported yet. In this case, you will see a warning about it.
 - Drafts won't preserve the [`Form.Password`](form.md#form.passwordfield)'s values.
 - Drafts will be dropped once [`Action.SubmitForm`](./actions.md#action.submitform) is triggered.
 - If you call [`popToRoot()`](../window-and-search-bar.md#poptoroot), drafts won't be preserved or updated.
@@ -116,7 +170,7 @@ Drafts are a mechanism to preserve filled-in inputs (but not yet submitted) when
 {% tab title="Uncontrolled Form" %}
 
 ```typescript
-import { Form, ActionPanel, Action, popToRoot } from "@raycast/api";
+import { Form, ActionPanel, Action, popToRoot, LaunchProps } from "@raycast/api";
 
 interface TodoValues {
   title: string;
@@ -124,13 +178,8 @@ interface TodoValues {
   dueDate?: Date;
 }
 
-export default function Command(props: { draftValues?: TodoValues }) {
+export default function Command(props: LaunchProps<{ draftValues: TodoValues }>) {
   const { draftValues } = props;
-
-  function handleSubmit(values: TodoValues) {
-    console.log("onSubmit", values);
-    popToRoot();
-  }
 
   return (
     <Form
@@ -139,7 +188,7 @@ export default function Command(props: { draftValues?: TodoValues }) {
         <ActionPanel>
           <Action.SubmitForm
             onSubmit={(values: TodoValues) => {
-              handleSubmit(values);
+              console.log("onSubmit", values);
               popToRoot();
             }}
           />
@@ -159,7 +208,7 @@ export default function Command(props: { draftValues?: TodoValues }) {
 {% tab title="Controlled Form" %}
 
 ```typescript
-import { Form, ActionPanel, Action, popToRoot } from "@raycast/api";
+import { Form, ActionPanel, Action, popToRoot, LaunchProps } from "@raycast/api";
 import { useState } from "react";
 
 interface TodoValues {
@@ -168,17 +217,12 @@ interface TodoValues {
   dueDate?: Date;
 }
 
-export default function Command(props: { draftValues?: TodoValues }) {
+export default function Command(props: LaunchProps<{ draftValues: TodoValues }>) {
   const { draftValues } = props;
 
-  const [title, setTitle] = useState<string | undefined>(draftValues?.title);
-  const [description, setDescription] = useState<string | undefined>(draftValues?.description);
-  const [dueDate, setDueDate] = useState<Date | undefined>(draftValues?.dueDate);
-
-  function handleSubmit(values: TodoValues) {
-    console.log("onSubmit", values);
-    popToRoot();
-  }
+  const [title, setTitle] = useState<string>(draftValues?.title || "");
+  const [description, setDescription] = useState<string>(draftValues?.description || "");
+  const [dueDate, setDueDate] = useState<Date | null>(draftValues?.dueDate || null);
 
   return (
     <Form
@@ -187,7 +231,7 @@ export default function Command(props: { draftValues?: TodoValues }) {
         <ActionPanel>
           <Action.SubmitForm
             onSubmit={(values: TodoValues) => {
-              handleSubmit(values);
+              console.log("onSubmit", values);
               popToRoot();
             }}
           />
@@ -211,6 +255,8 @@ export default function Command(props: { draftValues?: TodoValues }) {
 
 Shows a list of form items such as [Form.TextField](form.md#form.textfield), [Form.Checkbox](form.md#form.checkbox) or [Form.Dropdown](form.md#form.dropdown).
 
+Optionally add a [Form.LinkAccessory](form.md#form.linkaccessory) in the right-hand side of the navigation bar.
+
 #### Props
 
 <PropsTableFromJSDoc component="Form" />
@@ -219,7 +265,7 @@ Shows a list of form items such as [Form.TextField](form.md#form.textfield), [Fo
 
 A form item with a text field for input.
 
-![](../../.gitbook/assets/form-textfield.png)
+![](../../.gitbook/assets/form-textfield.webp)
 
 #### Example
 
@@ -253,7 +299,7 @@ import { ActionPanel, Form, Action } from "@raycast/api";
 import { useState } from "react";
 
 export default function Command() {
-  const [name, setName] = useState<string>();
+  const [name, setName] = useState<string>("");
 
   return (
     <Form
@@ -287,7 +333,7 @@ export default function Command() {
 
 A form item with a secure text field for password-entry in which the entered characters must be kept secret.
 
-![](../../.gitbook/assets/form-password.png)
+![](../../.gitbook/assets/form-password.webp)
 
 #### Example
 
@@ -321,7 +367,7 @@ import { ActionPanel, Form, Action } from "@raycast/api";
 import { useState } from "react";
 
 export default function Command() {
-  const [password, setPassword] = useState<string>();
+  const [password, setPassword] = useState<string>("");
 
   return (
     <Form
@@ -355,7 +401,7 @@ export default function Command() {
 
 A form item with a text area for input. The item supports multiline text entry.
 
-![](../../.gitbook/assets/form-textarea.png)
+![](../../.gitbook/assets/form-textarea.webp)
 
 #### Example
 
@@ -392,7 +438,7 @@ import { ActionPanel, Form, Action } from "@raycast/api";
 import { useState } from "react";
 
 export default function Command() {
-  const [description, setDescription] = useState<string>();
+  const [description, setDescription] = useState<string>("");
 
   return (
     <Form
@@ -426,7 +472,7 @@ export default function Command() {
 
 A form item with a checkbox.
 
-![](../../.gitbook/assets/form-checkbox.png)
+![](../../.gitbook/assets/form-checkbox.webp)
 
 #### Example
 
@@ -494,7 +540,7 @@ export default function Command() {
 
 A form item with a date picker.
 
-![](../../.gitbook/assets/form-datepicker.png)
+![](../../.gitbook/assets/form-datepicker.webp)
 
 #### Example
 
@@ -528,7 +574,7 @@ import { ActionPanel, Form, Action } from "@raycast/api";
 import { useState } from "react";
 
 export default function Command() {
-  const [date, setDate] = useState<Date>();
+  const [date, setDate] = useState<Date | null>(null);
 
   return (
     <Form
@@ -558,11 +604,43 @@ export default function Command() {
 | focus | <code>() => void</code> | Makes the item request focus.                                              |
 | reset | <code>() => void</code> | Resets the form item to its initial value, or `defaultValue` if specified. |
 
+#### Form.DatePicker.isFullDay
+
+A method that determines if a given date represents a full day or a specific time.
+
+```ts
+import { ActionPanel, Form, Action } from "@raycast/api";
+
+export default function Command() {
+  return (
+    <Form
+      actions={
+        <ActionPanel>
+          <Action.SubmitForm
+            title="Create Event"
+            onSubmit={(values) => {
+              if (Form.DatePicker.isFullDay(values.reminderDate)) {
+                // the event is for a full day
+              } else {
+                // the event is at a specific time
+              }
+            }}
+          />
+        </ActionPanel>
+      }
+    >
+      <Form.DatePicker id="eventTitle" title="Title" />
+      <Form.DatePicker id="eventDate" title="Date" />
+    </Form>
+  );
+}
+```
+
 ### Form.Dropdown
 
 A form item with a dropdown menu.
 
-![](../../.gitbook/assets/form-dropdown.png)
+![](../../.gitbook/assets/form-dropdown.webp)
 
 #### Example
 
@@ -649,7 +727,7 @@ A dropdown item in a [Form.Dropdown](form.md#form.dropdown)
 #### Example
 
 ```typescript
-import { ActionPanel, Form, Action } from "@raycast/api";
+import { Action, ActionPanel, Form, Icon } from "@raycast/api";
 
 export default function Command() {
   return (
@@ -715,7 +793,7 @@ export default function Command() {
 
 A form item with a tag picker that allows the user to select multiple items.
 
-![](../../.gitbook/assets/form-tagpicker.png)
+![](../../.gitbook/assets/form-tagpicker.webp)
 
 #### Example
 
@@ -827,7 +905,7 @@ export default function Command() {
 
 A form item that shows a separator line. Use for grouping and visually separating form items.
 
-![](../../.gitbook/assets/form-separator.png)
+![](../../.gitbook/assets/form-separator.webp)
 
 #### Example
 
@@ -851,13 +929,158 @@ export default function Command() {
 }
 ```
 
+### Form.FilePicker
+
+A form item with a button to open a dialog to pick some files and/or some directories (depending on its props).
+
+{% hint style="info" %}
+While the user picked some items that existed, it might be possible for them to be deleted or changed when the `onSubmit` callback is called. Hence you should always make sure that the items exist before acting on them!
+{% endhint %}
+
+![](../../.gitbook/assets/form-filepicker-multiple.webp)
+
+![Single Selection](../../.gitbook/assets/form-filepicker-single.webp)
+
+#### Example
+
+{% tabs %}
+{% tab title="Uncontrolled file picker" %}
+
+```typescript
+import { ActionPanel, Form, Action } from "@raycast/api";
+import fs from "fs";
+
+export default function Command() {
+  return (
+    <Form
+      actions={
+        <ActionPanel>
+          <Action.SubmitForm
+            title="Submit Name"
+            onSubmit={(values: { files: string[] }) => {
+              const files = values.files.filter((file: any) => fs.existsSync(file) && fs.lstatSync(file).isFile());
+              console.log(files);
+            }}
+          />
+        </ActionPanel>
+      }
+    >
+      <Form.FilePicker id="files" />
+    </Form>
+  );
+}
+```
+
+{% endtab %}
+
+{% tab title="Single selection file picker" %}
+
+```typescript
+import { ActionPanel, Form, Action } from "@raycast/api";
+import fs from "fs";
+
+export default function Command() {
+  return (
+    <Form
+      actions={
+        <ActionPanel>
+          <Action.SubmitForm
+            title="Submit Name"
+            onSubmit={(values: { files: string[] }) => {
+              const file = values.files[0];
+              if (!fs.existsSync(file) || !fs.lstatSync(file).isFile()) {
+                return false;
+              }
+              console.log(file);
+            }}
+          />
+        </ActionPanel>
+      }
+    >
+      <Form.FilePicker id="files" allowMultipleSelection={false} />
+    </Form>
+  );
+}
+```
+
+{% endtab %}
+
+{% tab title="Directory picker" %}
+
+```typescript
+import { ActionPanel, Form, Action } from "@raycast/api";
+import fs from "fs";
+
+export default function Command() {
+  return (
+    <Form
+      actions={
+        <ActionPanel>
+          <Action.SubmitForm
+            title="Submit Name"
+            onSubmit={(values: { folders: string[] }) => {
+              const folder = values.folders[0];
+              if (!fs.existsSync(folder) || fs.lstatSync(folder).isDirectory()) {
+                return false;
+              }
+              console.log(folder);
+            }}
+          />
+        </ActionPanel>
+      }
+    >
+      <Form.FilePicker id="folders" allowMultipleSelection={false} canChooseDirectories canChooseFiles={false} />
+    </Form>
+  );
+}
+```
+
+{% endtab %}
+
+{% tab title="Controlled file picker" %}
+
+```typescript
+import { ActionPanel, Form, Action } from "@raycast/api";
+import { useState } from "react";
+
+export default function Command() {
+  const [files, setFiles] = useState<string[]>([]);
+
+  return (
+    <Form
+      actions={
+        <ActionPanel>
+          <Action.SubmitForm title="Submit Name" onSubmit={(values) => console.log(values)} />
+        </ActionPanel>
+      }
+    >
+      <Form.FilePicker id="files" value={files} onChange={setFiles} />
+    </Form>
+  );
+}
+```
+
+{% endtab %}
+{% endtabs %}
+
+#### Props
+
+<PropsTableFromJSDoc component="Form.FilePicker" />
+
+#### Methods (Imperative API)
+
+| Name  | Signature               | Description                                                                |
+| ----- | ----------------------- | -------------------------------------------------------------------------- |
+| focus | <code>() => void</code> | Makes the item request focus.                                              |
+| reset | <code>() => void</code> | Resets the form item to its initial value, or `defaultValue` if specified. |
+
 ### Form.Description
 
 A form item with a simple text label.
 
 Do _not_ use this component to show validation messages for other form fields.
 
-![](../../.gitbook/assets/form-description.png)
+![](../../.gitbook/assets/form-description.webp)
 
 #### Example
 
@@ -886,6 +1109,40 @@ export default function Command() {
 
 <PropsTableFromJSDoc component="Form.Description" />
 
+### Form.LinkAccessory
+
+A link that will be shown in the right-hand side of the navigation bar.
+
+#### Example
+
+```typescript
+import { ActionPanel, Form, Action } from "@raycast/api";
+
+export default function Command() {
+  return (
+    <Form
+      searchBarAccessory={
+        <Form.LinkAccessory
+          target="https://developers.raycast.com/api-reference/user-interface/form"
+          text="Open Documentation"
+        />
+      }
+      actions={
+        <ActionPanel>
+          <Action.SubmitForm title="Submit Name" onSubmit={(values) => console.log(values)} />
+        </ActionPanel>
+      }
+    >
+      <Form.TextField id="name" defaultValue="Steve" />
+    </Form>
+  );
+}
+```
+
+#### Props
+
+<PropsTableFromJSDoc component="Form.LinkAccessory" />
+
 ## Types
 
 #### Form.Event
@@ -897,6 +1154,8 @@ Some Form.Item callbacks (like `onFocus` and `onBlur`) can return a `Form.Event`
 #### Example
 
 ```typescript
+import { Form } from "@raycast/api";
+
 export default function Main() {
   return (
     <Form>
@@ -916,7 +1175,7 @@ export default function Main() {
   );
 }
 
-function logEvent(event: Form.Event) {
+function logEvent(event: Form.Event<string[] | string>) {
   console.log(`Event '${event.type}' has happened for '${event.target.id}'. Current 'value': '${event.target.value}'`);
 }
 ```
@@ -934,7 +1193,7 @@ For type-safe form values, you can define your own interface. Use the ID's of th
 #### Example
 
 ```typescript
-import { Form } from "@raycast/api";
+import { Form, Action, ActionPanel } from "@raycast/api";
 
 interface Values {
   todo: string;
@@ -983,10 +1242,6 @@ The types of date components the user can pick with a `Form.DatePicker`.
 ## Imperative API
 
 You can use React's [useRef](https://reactjs.org/docs/hooks-reference.html#useref) hook to create variables which have access to imperative APIs (such as `.focus()` or `.reset()`) exposed by the native form items.
-
-{% hint style="info" %}
-The imperative APIs require version 1.33.0 or higher of the `@raycast/api` package.
-{% endhint %}
 
 ```typescript
 import { useRef } from "react";
@@ -1050,7 +1305,7 @@ export default function Command() {
       <Form.Dropdown
         id="dropdown"
         title="Dropdown"
-        defaultValue="one"
+        defaultValue="first"
         onChange={(newValue) => {
           console.log(newValue);
         }}

@@ -1,5 +1,5 @@
 import { ApolloClient, ApolloLink, HttpLink, InMemoryCache, concat, NormalizedCacheObject } from "@apollo/client";
-import fetch from "node-fetch";
+import fetch from "cross-fetch";
 
 import { getPreferenceValues } from "@raycast/api";
 import { getHttpAgent, GitLab } from "./gitlabapi";
@@ -101,4 +101,18 @@ export function getPreferPopToRootPreference(): boolean {
     return true;
   }
   return false;
+}
+
+export function getListDetailsPreference(): boolean {
+  const pref = getPreferenceValues();
+  const val = (pref.listdetails as boolean) || false;
+  if (val === true) {
+    return true;
+  }
+  return false;
+}
+
+export function getExcludeTodoAuthorUsernamesPreference(): string[] {
+  const pref = getPreferenceValues();
+  return pref.excludeTodoAuthorUsernames?.split(",").map((u: string) => u.trim()) || [];
 }

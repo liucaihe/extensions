@@ -1,44 +1,44 @@
 import { LinearClient } from "@linear/sdk";
-import { Clipboard, closeMainWindow, getPreferenceValues, open, Toast } from "@raycast/api";
-import { authorize, oauthClient } from "./api/oauth";
+import { Clipboard, closeMainWindow, getPreferenceValues, open, Toast, showToast } from "@raycast/api";
+import { linear } from "./api/linearClient";
+import { getAccessToken, withAccessToken } from "@raycast/utils";
+import { getTeams } from "./api/getTeams";
 
-type Arguments = {
-  title: string;
-  description?: string;
-};
-
-type Preferences = {
-  preferredTeamKey?: string;
-  shouldCloseMainWindow: boolean;
-};
-
-const command = async (props: { arguments: Arguments }) => {
-  const toast = new Toast({ style: Toast.Style.Animated, title: "Creating issue" });
-  await toast.show();
+const command = async (props: { arguments: Arguments.CreateIssueForMyself }) => {
+  const toast = await showToast({ style: Toast.Style.Animated, title: "Creating issue" });
 
   try {
-    const tokens = await oauthClient.getTokens();
-    const accessToken = tokens?.accessToken || (await authorize());
-    const linearClient = new LinearClient({ accessToken });
+    const { token } = getAccessToken();
+    const linearClient = new LinearClient({ accessToken: token });
 
-    const preferences: Preferences = getPreferenceValues();
+    const preferences = getPreferenceValues<Preferences.CreateIssueForMyself>();
 
     if (preferences.shouldCloseMainWindow) {
       await closeMainWindow();
     }
 
     const viewer = await linearClient.viewer;
-    const teams = await viewer.teams();
+    const { teams } = await getTeams();
 
-    const team = preferences.preferredTeamKey
-      ? teams.nodes.find((t) => t.key === preferences.preferredTeamKey)
-      : teams.nodes[0];
-    if (!team) {
+    let teamId: string | undefined;
+
+    if (preferences.preferredTeamKey) {
+      const team = teams.find((t) => t.key === preferences.preferredTeamKey);
+      if (team) {
+        teamId = team.id;
+      }
+    }
+
+    if (!teamId) {
+      teamId = teams[0].id;
+    }
+
+    if (!teamId) {
       throw Error("No team found");
     }
 
-    const payload = await linearClient.issueCreate({
-      teamId: team.id,
+    const payload = await linearClient.createIssue({
+      teamId: teamId,
       title: props.arguments.title,
       description: props.arguments.description,
       assigneeId: viewer.id,
@@ -61,7 +61,7 @@ const command = async (props: { arguments: Arguments }) => {
     };
 
     toast.secondaryAction = {
-      title: "Copy Issue Key",
+      title: "Copy Issue ID",
       shortcut: { modifiers: ["cmd", "shift"], key: "c" },
       onAction: () => Clipboard.copy(issue.identifier),
     };
@@ -72,9 +72,9 @@ const command = async (props: { arguments: Arguments }) => {
     toast.primaryAction = {
       title: "Copy Error Log",
       shortcut: { modifiers: ["cmd", "shift"], key: "c" },
-      onAction: () => Clipboard.copy(e instanceof Error ? e.stack ?? e.message : String(e)),
+      onAction: () => Clipboard.copy(e instanceof Error ? (e.stack ?? e.message) : String(e)),
     };
   }
 };
 
-export default command;
+export default withAccessToken(linear)(command);

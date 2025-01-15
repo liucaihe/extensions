@@ -1,5 +1,14 @@
 # Bunch Changelog
 
+## [Regular Updates] - 2024-01-19
+
+- Update Raycast API version to 1.65.1
+- Update shortcut to open Command Preferences
+
+## [Update Raycast API] - 2022-12-02
+
+- Update Raycast API version to 1.44.0
+
 ## [Text field validation] - 2022-07-04
 
 - Add text field validation

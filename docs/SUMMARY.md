@@ -2,13 +2,6 @@
 
 - [Introduction](README.md)
 
-## Links
-
-- [Community](https://raycast.com/community)
-- [GitHub](https://github.com/raycast/extensions)
-- [Store](https://raycast.com/store)
-- [Extension Icon Template](https://www.figma.com/community/file/1030764827259035122)
-
 ## Basics
 
 - [Getting Started](basics/getting-started.md)
@@ -18,6 +11,7 @@
 - [Publish an Extension](basics/publish-an-extension.md)
 - [Debug an Extension](basics/debug-an-extension.md)
 - [Install an Extension](basics/install-an-extension.md)
+- [Review an Extension in a Pull Request](basics/review-pullrequest.md)
 
 ## Teams
 
@@ -34,20 +28,28 @@
 
 ## Information
 
-- [Arguments](information/arguments.md)
-- [Background Refresh ᵇᵉᵗᵃ](information/background-refresh.md)
-- [Best Practices](information/best-practices.md)
-- [CLI](information/cli.md)
-- [File Structure](information/file-structure.md)
-- [Lifecycle](information/lifecycle.md)
-- [Manifest](information/manifest.md)
-- [Security](information/security.md)
 - [Terminology](information/terminology.md)
+- [File Structure](information/file-structure.md)
+- [Manifest](information/manifest.md)
+- [Lifecycle](information/lifecycle/README.md)
+  - [Arguments](information/lifecycle/arguments.md)
+  - [Background Refresh](information/lifecycle/background-refresh.md)
+  - [Deeplinks](information/lifecycle/deeplinks.md)
+- [Best Practices](information/best-practices.md)
+- [Developer Tools](information/developer-tools/README.md)
+  - [Manage Extensions Command](information/developer-tools/manage-extensions-command.md)
+  - [CLI](information/developer-tools/cli.md)
+  - [ESLint](information/developer-tools/eslint.md)
+  - [VS Code (community tool)](information/developer-tools/vscode.md)
+- [Security](information/security.md)
 - [Versioning](information/versioning.md)
 
 ## API Reference
 
+- [AI](api-reference/ai.md)
+- [Browser Extension](api-reference/browser-extension.md)
 - [Cache](api-reference/cache.md)
+- [Command](api-reference/command.md)
 - [Clipboard](api-reference/clipboard.md)
 - [Environment](api-reference/environment.md)
 - [Feedback](api-reference/feedback/README.md)
@@ -55,7 +57,7 @@
   - [HUD](api-reference/feedback/hud.md)
   - [Toast](api-reference/feedback/toast.md)
 - [Keyboard](api-reference/keyboard.md)
-- [Menu Bar Commands ᵇᵉᵗᵃ](api-reference/menu-bar-commands.md)
+- [Menu Bar Commands](api-reference/menu-bar-commands.md)
 - [OAuth](api-reference/oauth.md)
 - [Preferences](api-reference/preferences.md)
 - [Storage](api-reference/storage.md)
@@ -70,13 +72,19 @@
   - [Colors](api-reference/user-interface/colors.md)
   - [Icons & Images](api-reference/user-interface/icons-and-images.md)
   - [Navigation](api-reference/user-interface/navigation.md)
-- [Window & Search Bar](api-reference/window-and-search-bar.md)
+- [Raycast Window & Search Bar](api-reference/window-and-search-bar.md)
+- [Window Management](api-reference/window-management.md)
 
----
+## Misc
 
 - [Changelog](changelog.md)
 - [Migration](migration/README.md)
   - [v1.28.0](migration/v1.28.0.md)
   - [v1.31.0](migration/v1.31.0.md)
   - [v1.37.0](migration/v1.37.0.md)
+  - [v1.42.0](migration/v1.42.0.md)
+  - [v1.48.8](migration/v1.48.8.md)
+  - [v1.50.0](migration/v1.50.0.md)
+  - [v1.51.0](migration/v1.51.0.md)
+  - [v1.59.0](migration/v1.59.0.md)
 - [FAQ](faq.md)

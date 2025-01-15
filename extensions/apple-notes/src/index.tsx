@@ -1,87 +1,68 @@
-import { ActionPanel, List, Action, closeMainWindow, getPreferenceValues, Icon, showToast, Toast } from "@raycast/api";
-import { runAppleScript } from "run-applescript";
-import { useSqlNotes } from "./useSql";
-import { useAppleScriptNotes } from "./useAppleScript";
-import { isPermissionError, PermissionErrorScreen } from "./errors";
-import { NoteItem } from "./types";
+import { Action, ActionPanel, Icon, List } from "@raycast/api";
+import { useState } from "react";
 
-interface Preferences {
-  accounts: boolean;
-  folders: boolean;
-  modificationDate: boolean;
-}
+import { createNote } from "./api";
+import NoteListItem from "./components/NoteListItem";
+import { useNotes } from "./useNotes";
 
-const preferences: Preferences = getPreferenceValues();
+export type NoteTitle = {
+  title: string;
+  uuid: string;
+};
 
 export default function Command() {
-  const sqlState = useSqlNotes();
-  const appleScriptState = useAppleScriptNotes(preferences.modificationDate);
+  const { data, isLoading, permissionView, mutate } = useNotes();
+  const [searchText, setSearchText] = useState<string>("");
 
-  async function openNote(note: NoteItem) {
-    await closeMainWindow();
-    await runAppleScript(`tell application "Notes" \nshow note "${note.title}" \nend tell`);
+  if (permissionView) {
+    return permissionView;
   }
 
-  if (sqlState.error) {
-    if (isPermissionError(sqlState.error)) {
-      return <PermissionErrorScreen />;
-    } else {
-      showToast({
-        style: Toast.Style.Failure,
-        title: "Cannot search notes",
-        message: sqlState.error.message,
-      });
-    }
-  }
-
-  const alreadyFound: { [key: string]: boolean } = {};
-  const notes = (sqlState.results || [])
-    .concat(appleScriptState.notes || [])
-    .filter((x) => {
-      const found = alreadyFound[x.id];
-      if (!found) {
-        alreadyFound[x.id] = true;
-      }
-      return !found;
-    })
-    .sort((a, b) => (a.modifiedAt && b.modifiedAt && a.modifiedAt < b.modifiedAt ? 1 : -1));
+  const noteTitles = [...(data?.pinnedNotes ?? []), ...(data?.unpinnedNotes ?? [])].map((note) => ({
+    title: note.title,
+    uuid: note.UUID,
+  }));
 
   return (
-    <List isLoading={sqlState.isLoading || appleScriptState.isLoading}>
-      {notes.map((note) => (
-        <List.Item
-          key={note.id}
-          icon="notes-icon.png"
-          title={note.title || ""}
-          subtitle={note.snippet}
-          keywords={[`${note.folder}`, `${note.account}`].concat(note.snippet ? [note.snippet] : [])}
-          accessories={([] as List.Item.Accessory[])
-            .concat(
-              preferences.accounts
-                ? preferences.folders
-                  ? [{ text: `${note.account} -> ${note.folder}`, tooltip: "Account -> Folder" }]
-                  : [{ text: `${note.account}`, tooltip: "Account" }]
-                : preferences.folders
-                ? [{ text: `${note.folder}`, tooltip: "Folder" }]
-                : []
-            )
-            .concat(
-              preferences.modificationDate
-                ? [
-                    {
-                      date: new Date(note.modifiedAt || ""),
-                      tooltip: "Last Modified At",
-                    },
-                  ]
-                : []
-            )}
-          actions={
-            <ActionPanel title="Actions">
-              <Action title="Open in Notes" icon={Icon.TextDocument} onAction={() => openNote(note)} />
-            </ActionPanel>
-          }
-        />
-      ))}
+    <List
+      onSearchTextChange={setSearchText}
+      isLoading={isLoading}
+      searchBarPlaceholder="Search notes by title, folder, description, tags, or accessories"
+      filtering={{ keepSectionOrder: true }}
+    >
+      <List.Section title="Pinned">
+        {data.pinnedNotes.map((note) => (
+          <NoteListItem noteTitles={noteTitles} key={note.id} note={note} mutate={mutate} />
+        ))}
+      </List.Section>
+
+      <List.Section title="Notes">
+        {data.unpinnedNotes.map((note) => (
+          <NoteListItem noteTitles={noteTitles} key={note.id} note={note} mutate={mutate} />
+        ))}
+      </List.Section>
+
+      <List.Section title="Recently Deleted">
+        {data.deletedNotes.map((note) => (
+          <NoteListItem key={note.id} note={note} mutate={mutate} isDeleted />
+        ))}
+      </List.Section>
+
+      <List.EmptyView
+        title="No notes were found"
+        description="Create a new note by pressing ⏎"
+        actions={
+          <ActionPanel>
+            <Action icon={Icon.Plus} title="Create New Note" onAction={() => createNote(searchText)} />
+            <Action
+              title="Refresh"
+              icon={Icon.ArrowClockwise}
+              shortcut={{ modifiers: ["cmd"], key: "r" }}
+              onAction={() => mutate()}
+            />
+          </ActionPanel>
+        }
+      />
     </List>
   );
 }

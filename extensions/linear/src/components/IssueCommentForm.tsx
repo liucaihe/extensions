@@ -2,13 +2,13 @@ import { useState } from "react";
 import { ActionPanel, Action, Form, Icon, showToast, Toast, useNavigation } from "@raycast/api";
 import { CommentResult, IssueResult } from "../api/getIssues";
 import { getErrorMessage } from "../helpers/errors";
-import { getLinearClient } from "../helpers/withLinearClient";
+import { getLinearClient } from "../api/linearClient";
 import { MutatePromise } from "@raycast/utils";
 
 type IssueCommentFormProps = {
   issue: IssueResult;
   comment?: CommentResult;
-  mutateComments: MutatePromise<CommentResult[] | undefined>;
+  mutateComments?: MutatePromise<CommentResult[] | undefined>;
 };
 
 export default function IssueCommentForm({ comment, issue, mutateComments }: IssueCommentFormProps) {
@@ -22,13 +22,16 @@ export default function IssueCommentForm({ comment, issue, mutateComments }: Iss
 
     try {
       comment
-        ? await linearClient.commentUpdate(comment.id, { body: content })
-        : await linearClient.commentCreate({ body: content, issueId: issue.id });
+        ? await linearClient.updateComment(comment.id, { body: content })
+        : await linearClient.createComment({ body: content, issueId: issue.id });
 
       await showToast({ style: Toast.Style.Success, title: `${comment ? "Updated" : "Added"} comment` });
 
       pop();
-      mutateComments();
+
+      if (mutateComments) {
+        mutateComments();
+      }
     } catch (error) {
       showToast({
         style: Toast.Style.Failure,

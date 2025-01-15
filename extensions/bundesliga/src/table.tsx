@@ -1,16 +1,18 @@
 import { Action, ActionPanel, Color, Icon, Image, List } from "@raycast/api";
+import { usePromise } from "@raycast/utils";
 import { useState } from "react";
-import { useTable } from "./hooks";
+import { getTable } from "./api";
 
 export default function Table() {
   const [competition, setCompetition] = useState<string>("bundesliga");
-  const table = useTable(competition);
   const [showStats, setShowStats] = useState<boolean>(false);
+
+  const { data: table, isLoading } = usePromise(getTable, [competition]);
 
   return (
     <List
       throttle
-      isLoading={!table}
+      isLoading={isLoading}
       isShowingDetail={showStats}
       searchBarAccessory={
         <List.Dropdown
@@ -18,8 +20,16 @@ export default function Table() {
           value={competition}
           onChange={setCompetition}
         >
-          <List.Dropdown.Item title="Bundesliga" value="bundesliga" />
-          <List.Dropdown.Item title="2. Bundesliga" value="2bundesliga" />
+          <List.Dropdown.Item
+            title="Bundesliga"
+            value="bundesliga"
+            icon="bundesliga.svg"
+          />
+          <List.Dropdown.Item
+            title="2. Bundesliga"
+            value="2bundesliga"
+            icon="2bundesliga.svg"
+          />
         </List.Dropdown>
       }
     >
@@ -31,24 +41,50 @@ export default function Table() {
 
         if (entry.tendency === "UP") {
           icon = {
-            source: Icon.ChevronUp,
+            source: Icon.ChevronUpSmall,
             tintColor: Color.Green,
           };
         } else if (entry.tendency === "DOWN") {
           icon = {
-            source: Icon.ChevronDown,
+            source: Icon.ChevronDownSmall,
             tintColor: Color.Red,
           };
         }
 
+        const accessories: List.Item.Accessory[] = [
+          {
+            text: {
+              color: Color.PrimaryText,
+              value: entry.points.toString(),
+            },
+            icon,
+            tooltip: "Points",
+          },
+        ];
+
+        if (!showStats) {
+          accessories.unshift(
+            {
+              icon: Icon.SoccerBall,
+              text: entry.gamesPlayed.toString(),
+              tooltip: "Played",
+            },
+            {
+              icon: Icon.Goal,
+              text: `${entry.goalsScored} - ${entry.goalsAgainst}`,
+              tooltip: "Goals For - Goals Against",
+            },
+          );
+        }
+
         return (
           <List.Item
-            key={entry.rank}
+            key={entry.club.id}
             icon={entry.club.logoUrl}
             title={entry.rank.toString()}
             subtitle={entry.club.nameFull}
             keywords={[entry.club.nameFull, entry.club.nameShort]}
-            accessories={[{ text: entry.points.toString() }, { icon }]}
+            accessories={accessories}
             detail={
               <List.Item.Detail
                 metadata={

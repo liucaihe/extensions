@@ -1,4 +1,4 @@
-import { Detail, ActionPanel } from "@raycast/api";
+import { Detail, ActionPanel, Icon } from "@raycast/api";
 import { MutatePromise } from "@raycast/utils";
 import { IssuePriorityValue, User } from "@linear/sdk";
 
@@ -9,22 +9,24 @@ import useIssueDetail from "../hooks/useIssueDetail";
 import { formatCycle } from "../helpers/cycles";
 import { EstimateType, getEstimateLabel } from "../helpers/estimates";
 import { priorityIcons } from "../helpers/priorities";
-import { statusIcons } from "../helpers/states";
+import { getStatusIcon } from "../helpers/states";
 import { getUserIcon } from "../helpers/users";
 
 import IssueActions from "./IssueActions";
 import { format } from "date-fns";
-import { getDueDateIcon } from "../helpers/dates";
+import { getDateIcon } from "../helpers/dates";
+import { getProjectIcon } from "../helpers/projects";
+import { getMilestoneIcon } from "../helpers/milestones";
 
 type IssueDetailProps = {
   issue: IssueResult;
   mutateList?: MutatePromise<IssueResult[] | undefined>;
+  showAttachmentsAction?: boolean;
   priorities: IssuePriorityValue[] | undefined;
-  users: User[] | undefined;
   me: User | undefined;
 };
 
-export default function IssueDetail({ issue: existingIssue, mutateList, priorities, users, me }: IssueDetailProps) {
+export default function IssueDetail({ issue: existingIssue, mutateList, priorities, me }: IssueDetailProps) {
   const { issue, isLoadingIssue, mutateDetail } = useIssueDetail(existingIssue);
 
   let markdown = `# ${issue?.title}`;
@@ -35,6 +37,11 @@ export default function IssueDetail({ issue: existingIssue, mutateList, prioriti
 
   const cycle = issue?.cycle ? formatCycle(issue.cycle) : null;
 
+  const relatedIssues = issue.relations ? issue.relations.nodes.filter((node) => node.type == "related") : null;
+  const duplicateIssues = issue.relations ? issue.relations.nodes.filter((node) => node.type == "duplicate") : null;
+
+  const linksCount = issue.attachments?.nodes.length ?? 0;
+
   return (
     <Detail
       markdown={markdown}
@@ -43,11 +50,7 @@ export default function IssueDetail({ issue: existingIssue, mutateList, prioriti
         ? {
             metadata: (
               <Detail.Metadata>
-                <Detail.Metadata.Label
-                  title="Status"
-                  text={issue.state.name}
-                  icon={{ source: statusIcons[issue.state.type], tintColor: issue.state.color }}
-                />
+                <Detail.Metadata.Label title="Status" text={issue.state.name} icon={getStatusIcon(issue.state)} />
 
                 <Detail.Metadata.Label
                   title="Priority"
@@ -86,7 +89,15 @@ export default function IssueDetail({ issue: existingIssue, mutateList, prioriti
                   <Detail.Metadata.Label
                     title="Due Date"
                     text={format(new Date(issue.dueDate), "MM/dd/yyyy")}
-                    icon={getDueDateIcon(new Date(issue.dueDate))}
+                    icon={getDateIcon(new Date(issue.dueDate))}
+                  />
+                ) : null}
+
+                {linksCount > 0 ? (
+                  <Detail.Metadata.Label
+                    title="Links"
+                    text={`${linksCount > 1 ? `${linksCount} links` : "1 link"}`}
+                    icon={Icon.Link}
                   />
                 ) : null}
 
@@ -101,14 +112,13 @@ export default function IssueDetail({ issue: existingIssue, mutateList, prioriti
                 <Detail.Metadata.Label
                   title="Project"
                   text={issue.project ? issue.project.name : "No Project"}
-                  icon={
-                    issue.project
-                      ? {
-                          source: issue.project.icon || { light: "light/project.svg", dark: "dark/project.svg" },
-                          tintColor: issue.project.color,
-                        }
-                      : { source: { light: "light/no-project.svg", dark: "dark/no-project.svg" } }
-                  }
+                  icon={getProjectIcon(issue.project)}
+                />
+
+                <Detail.Metadata.Label
+                  title="Milestone"
+                  text={issue.projectMilestone ? issue.projectMilestone.name : "No Milestone"}
+                  icon={getMilestoneIcon(issue.projectMilestone)}
                 />
 
                 <Detail.Metadata.Label
@@ -116,10 +126,26 @@ export default function IssueDetail({ issue: existingIssue, mutateList, prioriti
                   text={issue.parent ? issue.parent.title : "No Issue"}
                   icon={
                     issue.parent
-                      ? { source: statusIcons[issue.parent.state.type], tintColor: issue.parent.state.color }
+                      ? getStatusIcon(issue.parent.state)
                       : { source: { light: "light/backlog.svg", dark: "dark/backlog.svg" } }
                   }
                 />
+
+                {!!relatedIssues && relatedIssues.length > 0 ? (
+                  <Detail.Metadata.TagList title="Related">
+                    {relatedIssues.map(({ id, relatedIssue }) => (
+                      <Detail.Metadata.TagList.Item key={id} text={relatedIssue.identifier} />
+                    ))}
+                  </Detail.Metadata.TagList>
+                ) : null}
+
+                {!!duplicateIssues && duplicateIssues.length > 0 ? (
+                  <Detail.Metadata.TagList title="Duplicates">
+                    {duplicateIssues.map(({ id, relatedIssue }) => (
+                      <Detail.Metadata.TagList.Item key={id} text={relatedIssue.identifier} />
+                    ))}
+                  </Detail.Metadata.TagList>
+                ) : null}
               </Detail.Metadata>
             ),
             actions: (
@@ -129,7 +155,8 @@ export default function IssueDetail({ issue: existingIssue, mutateList, prioriti
                   mutateList={mutateList}
                   mutateDetail={mutateDetail}
                   priorities={priorities}
-                  users={users}
+                  showAttachmentsAction={linksCount > 0}
+                  attachments={issue.attachments?.nodes ?? []}
                   me={me}
                 />
               </ActionPanel>

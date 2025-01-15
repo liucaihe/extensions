@@ -1,5 +1,10 @@
-export interface Preferences {
+import { getPreferenceValues } from "@raycast/api";
+
+interface Preferences {
+  fontFallback: boolean;
   actionAfterDecoration: string;
   itemLayout: string;
-  itemSize: string;
+  columns: string;
 }
+
+export const { fontFallback, actionAfterDecoration, itemLayout, columns } = getPreferenceValues<Preferences>();

@@ -1,5 +1,5 @@
 import { ActionPanel, List, Action, Icon, Detail, useNavigation } from "@raycast/api";
-import { useState, Fragment, useMemo } from "react";
+import { useState, Fragment, useMemo, useEffect } from "react";
 import { DateTime } from "luxon";
 import { nanoid } from "nanoid";
 
@@ -9,11 +9,12 @@ import {
   NotebooksOrderBy,
   SearchNotebookFragment as SearchNotebook,
 } from "../sourcegraph/gql/operations";
-import { bold, codeBlock, inlineCode, italic, quoteBlock } from "../markdown";
+import { bold, codeBlock, italic, quoteBlock } from "../markdown";
 
 import { copyShortcut } from "./shortcuts";
 import { ColorDefault, ColorEmphasis, ColorPrivate } from "./colors";
-import ExpandableErrorToast from "./ExpandableErrorToast";
+import ExpandableToast from "./ExpandableToast";
+import { useTelemetry } from "../hooks/telemetry";
 
 const link = new LinkBuilder("notebooks");
 
@@ -21,6 +22,9 @@ const link = new LinkBuilder("notebooks");
  * FindNotebooksCommand is the shared search notebooks command.
  */
 export default function FindNotebooksCommand({ src }: { src: Sourcegraph }) {
+  const { recorder } = useTelemetry(src);
+  useEffect(() => recorder.recordEvent("findNotebooks", "start"), []);
+
   const [searchText, setSearchText] = useState("");
   const { loading, error, data } = useGetNotebooksQuery({
     client: src.client,
@@ -33,7 +37,7 @@ export default function FindNotebooksCommand({ src }: { src: Sourcegraph }) {
 
   const { push } = useNavigation();
   if (error) {
-    ExpandableErrorToast(push, "Unexpected error", "Find notebooks failed", error.message).show();
+    ExpandableToast(push, "Unexpected error", "Find notebooks failed", error.message).show();
   }
 
   const srcName = instanceName(src);
@@ -47,11 +51,11 @@ export default function FindNotebooksCommand({ src }: { src: Sourcegraph }) {
       selectedItemId={length > 0 ? "first-result" : undefined}
       throttle
     >
-      {!loading && !searchText ? (
+      {!loading && !searchText && (
         <List.Section title={"Suggestions"}>
           <List.Item
             title="Create a search notebook"
-            icon={{ source: Icon.Plus }}
+            icon={{ source: Icon.NewDocument }}
             actions={
               <ActionPanel>
                 <Action.OpenInBrowser title="Create in Browser" url={link.new(src, `/notebooks/new`)} />
@@ -59,17 +63,15 @@ export default function FindNotebooksCommand({ src }: { src: Sourcegraph }) {
             }
           />
         </List.Section>
-      ) : (
-        <Fragment />
       )}
 
-      {notebooks && (
-        <List.Section title={searchText ? "Notebooks" : "Recent notebooks"}>
-          {notebooks.map((n, i) => (
-            <NotebookResultItem id={i === 0 ? "first-result" : undefined} key={nanoid()} notebook={n} src={src} />
-          ))}
-        </List.Section>
-      )}
+      {loading && length === 0 && <List.EmptyView title={"Loading..."} />}
+
+      <List.Section title={searchText ? "Notebooks" : "Recent notebooks"}>
+        {notebooks?.map((n, i) => (
+          <NotebookResultItem id={i === 0 ? "first-result" : undefined} key={nanoid()} notebook={n} src={src} />
+        ))}
+      </List.Section>
     </List>
   );
 }
@@ -112,7 +114,7 @@ function NotebookResultItem({
       accessories={accessories}
       icon={{
         value: {
-          source: Icon.Document,
+          source: Icon.CodeBlock,
           tintColor: notebook.public ? ColorDefault : ColorPrivate,
         },
         tooltip: notebook.public ? "Public notebook" : "Private notebook",
@@ -122,7 +124,7 @@ function NotebookResultItem({
           <Action.Push
             key={nanoid()}
             title="Preview Notebook"
-            icon={{ source: Icon.MagnifyingGlass }}
+            icon={{ source: Icon.Maximize }}
             target={<NotebookPreviewView notebook={notebook} src={src} />}
           />
           <Action.OpenInBrowser key={nanoid()} url={url} />
@@ -154,12 +156,10 @@ ${
               const symbol = quoteBlock(
                 `${italic(b.symbolInput.symbolKind.toLocaleLowerCase())} ${bold(b.symbolInput.symbolName)} ${
                   b.symbolInput.symbolContainerName
-                }`
+                }`,
               );
               return `${symbol}\n${codeBlock(`${b.symbolInput.repositoryName} > ${b.symbolInput.filePath}`)}`;
             }
-            default:
-              return quoteBlock(`Unsupported block type: ${inlineCode(b.__typename)}`);
           }
         })
         .join("\n\n")

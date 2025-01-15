@@ -1,5 +1,18 @@
 # Text Decorator Changelog
 
+## [Fix Flash] - 2024-06-11
+
+- Fix the bug of flashing when opening the Decorate Text command
+
+## [Undecorate Text] - 2024-06-11
+
+- Add Undecorate Text command to undecorate text 
+- Optimise the Decorate Text command to make it easier to use.
+
+## [Update Raycast API] - 2022-11-30
+
+- Update Raycast API version to 1.44.0
+
 ## [Fix Dark theme bug] - 2022-06-22
 
 - Fix the bug of unclear text display in Grid layout under the dark theme

@@ -1,35 +1,38 @@
 import { codeFileTypes, documentFileTypes, scriptFileTypes, TemplateType } from "../types/file-type";
 import React from "react";
-import { getPreferenceValues, Grid } from "@raycast/api";
+import { Grid } from "@raycast/api";
 import { isEmpty, isImage } from "../utils/common-utils";
 import { parse } from "path";
 import { ActionNewTemplateFileHere } from "./action-new-template-file-here";
-import { Preferences } from "../types/preferences";
 import { NewFileHereEmptyView } from "./new-file-here-empty-view";
 import { NewFileHereItem } from "./new-file-here-item";
+import { columns, itemInset, layout, showCode, showDocument, showScript } from "../types/preferences";
 
 export function NewFileHereGridLayout(props: {
+  navigationTitle: string;
   isLoading: boolean;
   templateFiles: TemplateType[];
+  folder: string;
   setRefresh: React.Dispatch<React.SetStateAction<number>>;
 }) {
-  const { isLoading, templateFiles, setRefresh } = props;
-  const { layout, itemSize, itemInset, showDocument, showCode, showScript } = getPreferenceValues<Preferences>();
+  const { navigationTitle, isLoading, templateFiles, folder, setRefresh } = props;
   return (
     <Grid
+      navigationTitle={navigationTitle}
       inset={isEmpty(itemInset) ? undefined : (itemInset as Grid.Inset)}
-      itemSize={itemSize as Grid.ItemSize}
+      columns={parseInt(columns)}
+      aspectRatio={"3/2"}
       isLoading={isLoading}
       searchBarPlaceholder={"Search and create files"}
       selectedItemId={templateFiles.length > 0 ? templateFiles[0].path : ""}
     >
       <NewFileHereEmptyView
         layout={layout}
-        title={"No templates"}
+        title={"No Templates"}
         description={"You can add template from the Action Panel"}
         setRefresh={setRefresh}
       />
-      <Grid.Section title={"Template"} subtitle={templateFiles.length + ""}>
+      <Grid.Section title={"Template"}>
         {templateFiles.map((template, index) => {
           return (
             <Grid.Item
@@ -47,6 +50,7 @@ export function NewFileHereGridLayout(props: {
                   template={template}
                   index={index}
                   templateFiles={templateFiles}
+                  folder={folder}
                   setRefresh={setRefresh}
                 />
               }
@@ -55,7 +59,7 @@ export function NewFileHereGridLayout(props: {
         })}
       </Grid.Section>
       {!isLoading && showDocument && (
-        <Grid.Section title={"Document"} subtitle={documentFileTypes.length + ""}>
+        <Grid.Section title={"Document"}>
           {documentFileTypes.map((fileType, index) => {
             return (
               <NewFileHereItem
@@ -64,6 +68,7 @@ export function NewFileHereGridLayout(props: {
                 fileType={fileType}
                 newFileType={{ section: "Document", index: index }}
                 templateFiles={templateFiles}
+                folder={folder}
                 setRefresh={setRefresh}
               />
             );
@@ -71,7 +76,7 @@ export function NewFileHereGridLayout(props: {
         </Grid.Section>
       )}
       {!isLoading && showCode && (
-        <Grid.Section title={"Code"} subtitle={codeFileTypes.length + ""}>
+        <Grid.Section title={"Code"}>
           {codeFileTypes.map((fileType, index) => {
             return (
               <NewFileHereItem
@@ -80,6 +85,7 @@ export function NewFileHereGridLayout(props: {
                 fileType={fileType}
                 newFileType={{ section: "Code", index: index }}
                 templateFiles={templateFiles}
+                folder={folder}
                 setRefresh={setRefresh}
               />
             );
@@ -87,7 +93,7 @@ export function NewFileHereGridLayout(props: {
         </Grid.Section>
       )}
       {!isLoading && showScript && (
-        <Grid.Section title={"Script"} subtitle={scriptFileTypes.length + ""}>
+        <Grid.Section title={"Script"}>
           {scriptFileTypes.map((fileType, index) => {
             return (
               <NewFileHereItem
@@ -96,6 +102,7 @@ export function NewFileHereGridLayout(props: {
                 fileType={fileType}
                 newFileType={{ section: "Script", index: index }}
                 templateFiles={templateFiles}
+                folder={folder}
                 setRefresh={setRefresh}
               />
             );

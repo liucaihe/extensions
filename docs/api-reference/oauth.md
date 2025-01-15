@@ -4,16 +4,20 @@
 
 A Raycast extension can use OAuth for authorizing access to a provider's resources on the user's behalf. Since Raycast is a desktop app and the extensions are considered "public", we only support the [PKCE flow](https://datatracker.ietf.org/doc/html/rfc7636) (Proof Key for Code Exchange, pronounced “pixy”). This flow is the official recommendation for native clients that cannot keep a client secret. With PKCE, the client dynamically creates a secret and uses the secret again during code exchange, ensuring that only the client that performed the initial request can exchange the code for the access token (”proof of possession”).
 
-Before considering OAuth, first check if your provider supports PKCE. You can usually find this in the provider's OAuth docs by looking for `code_challenge` and `code_verifier` parameters. Providers such as Google, Twitter, GitLab, Spotify, Zoom, Asana or Dropbox are all PKCE-ready. If you find that your provider does not yet support PKCE, you can often use other forms of authorization such as personal access tokens (usable with Raycast password preferences), or open-source PKCE proxies that "adapt" an OAuth flow to be PKCE-compatible (you would need to operate your own backend service in this case, so this is only recommended for very advanced use cases.)
+{% hint style="info" %}
+Providers such as Google, Twitter, GitLab, Spotify, Zoom, Asana or Dropbox are all PKCE-ready.
+
+However, if your provider doesn't support PKCE, you can use our [PKCE proxy](https://oauth.raycast.com). It allows extensions to securely use an OAuth flow without exposing any secret.
+{% endhint %}
 
 ## OAuth Flow
 
-![](../.gitbook/assets/oauth-overlay-twitter.png)
+![](../.gitbook/assets/oauth-overlay-twitter.webp)
 
 The OAuth flow from an extension looks like this:
 
 1. The extension initiates the OAuth flow and starts authorization
-2. Raycast shows the OAuth overlay ("Connect to provider...")
+2. Raycast shows the OAuth overlay ("Connect to provider…")
 3. The user opens the provider's consent page in the web browser
 4. After the user consent, the provider redirects back to Raycast
 5. Raycast opens the extension where authorization is completed
@@ -21,7 +25,7 @@ The OAuth flow from an extension looks like this:
 When the flow is complete, the extension has received an access token from the provider and can perform API calls.
 The API provides functions for securely storing and retrieving token sets, so that an extension can check whether the user is already logged in and whether an expired access token needs to be refreshed. Raycast also automatically shows a logout preference.
 
-![](../.gitbook/assets/oauth-overlay-twitter-success.png)
+![](../.gitbook/assets/oauth-overlay-twitter-success.webp)
 
 ## OAuth App
 
@@ -33,7 +37,7 @@ Note: Make sure to choose an app type that supports PKCE. Some providers still s
 
 An extension can initiate the OAuth flow and authorize by using the methods on [OAuth.PKCEClient](#oauth.pkceclient).
 
-You can create a new client and configure it with a provider name, icon and description that will be shown in the OAuth overlay. You can also choose between different redirect methods–depending on which method you choose, you need to configure this value as redirect URI in your provider's registered OAuth app. (See the [OAuth.RedirectMethod](#oauth.redirectmethod) docs for each method to get concrete examples for supported redirect URI.) If you can choose, use `OAuth.RedirectMethod.Web` and enter `https://raycast.com/redirect?packageName=Extension` (whether you have to add the `?packageName=Extension` depends on the provider).
+You can create a new client and configure it with a provider name, icon and description that will be shown in the OAuth overlay. You can also choose between different redirect methods; depending on which method you choose, you need to configure this value as redirect URI in your provider's registered OAuth app. (See the [OAuth.RedirectMethod](#oauth.redirectmethod) docs for each method to get concrete examples for supported redirect URI.) If you can choose, use `OAuth.RedirectMethod.Web` and enter `https://raycast.com/redirect?packageName=Extension` (whether you have to add the `?packageName=Extension` depends on the provider).
 
 ```typescript
 import { OAuth } from "@raycast/api";
@@ -42,7 +46,7 @@ const client = new OAuth.PKCEClient({
   redirectMethod: OAuth.RedirectMethod.Web,
   providerName: "Twitter",
   providerIcon: "twitter-logo.png",
-  description: "Connect your Twitter account...",
+  description: "Connect your Twitter account…",
 });
 ```
 
@@ -175,7 +179,7 @@ const client = new OAuth.PKCEClient({
   redirectMethod: OAuth.RedirectMethod.Web,
   providerName: "Twitter",
   providerIcon: "twitter-logo.png",
-  description: "Connect your Twitter account...",
+  description: "Connect your Twitter account…",
 });
 ```
 
@@ -213,9 +217,9 @@ const authRequest = await client.authorizationRequest({
 
 #### Parameters
 
-| Name    | Type                                                                           | Required | Description                                           |
-| :------ | :----------------------------------------------------------------------------- | :------- | :---------------------------------------------------- |
-| options | <code>[AuthorizationRequestOptions](#oauth.authorizationrequestoptions)</code> | Yes      | The options used to create the authorization request. |
+| Name                                      | Type                                                                           | Description                                           |
+| :---------------------------------------- | :----------------------------------------------------------------------------- | :---------------------------------------------------- |
+| options<mark style="color:red;">\*</mark> | <code>[AuthorizationRequestOptions](#oauth.authorizationrequestoptions)</code> | The options used to create the authorization request. |
 
 #### Return
 
@@ -239,9 +243,9 @@ const { authorizationCode } = await client.authorize(authRequest);
 
 #### Parameters
 
-| Name    | Type                                                                                                                    | Required | Description                    |
-| :------ | :---------------------------------------------------------------------------------------------------------------------- | :------- | :----------------------------- |
-| options | <code>[AuthorizationRequest](#oauth.authorizationrequest) \| [AuthorizationOptions](#oauth.authorizationoptions)</code> | Yes      | The options used to authorize. |
+| Name                                      | Type                                                                                                                    | Description                    |
+| :---------------------------------------- | :---------------------------------------------------------------------------------------------------------------------- | :----------------------------- |
+| options<mark style="color:red;">\*</mark> | <code>[AuthorizationRequest](#oauth.authorizationrequest) \| [AuthorizationOptions](#oauth.authorizationoptions)</code> | The options used to authorize. |
 
 #### Return
 
@@ -270,9 +274,9 @@ await client.setTokens(tokenResponse);
 
 #### Parameters
 
-| Name    | Type                                                                                            | Required | Description                              |
-| :------ | :---------------------------------------------------------------------------------------------- | :------- | :--------------------------------------- |
-| options | <code>[TokenSetOptions](#oauth.tokensetoptions) \| [TokenResponse](#oauth.tokenresponse)</code> | Yes      | The options used to store the token set. |
+| Name                                      | Type                                                                                            | Description                              |
+| :---------------------------------------- | :---------------------------------------------------------------------------------------------- | :--------------------------------------- |
+| options<mark style="color:red;">\*</mark> | <code>[TokenSetOptions](#oauth.tokensetoptions) \| [TokenResponse](#oauth.tokenresponse)</code> | The options used to store the token set. |
 
 #### Return
 
@@ -335,11 +339,11 @@ Defines the supported redirect methods for the OAuth flow. You can choose betwee
 
 #### Enumeration members
 
-| Name   | Value                                                                                                                                                                                                                                                                                                                  |
-| :----- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Web    | Use this type for a redirect back to the Raycast website, which will then open the extension. In the OAuth app, configure either `https://raycast.com/redirect` or `https://raycast.com/redirect?packageName=Extension`<br>(For example, Twitter would accept the former, while Spotify requires the query parameter.) |
-| App    | Use this type for an app-scheme based redirect that directly opens Raycast. In the OAuth app, configure `raycast://oauth?package_name=Extension`                                                                                                                                                                       |
-| AppURI | Use this type for a URI-style app scheme that directly opens Raycast. In the OAuth app, configure `com.raycast:/oauth?package_name=Extension`<br>(Note the single slash – Google, for example, would require this flavor for an OAuth app where the Bundle ID is `com.raycast`)                                        |
+| Name   | Value                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| :----- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Web    | Use this type for a redirect back to the Raycast website, which will then open the extension. In the OAuth app, configure `https://raycast.com/redirect?packageName=Extension`<br>(This is a static redirect URL for all extensions.)<br>If the provider does not accept query parameters in redirect URLs, you can alternatively use `https://raycast.com/redirect/extension` and then customize the [AuthorizationRequest](#oauth.authorizationrequest) via its `extraParameters` property. For example add: `extraParameters: { "redirect_uri": "https://raycast.com/redirect/extension" }` |
+| App    | Use this type for an app-scheme based redirect that directly opens Raycast. In the OAuth app, configure `raycast://oauth?package_name=Extension`                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| AppURI | Use this type for a URI-style app scheme that directly opens Raycast. In the OAuth app, configure `com.raycast:/oauth?package_name=Extension`<br>(Note the single slash – Google, for example, would require this flavor for an OAuth app where the Bundle ID is `com.raycast`)                                                                                                                                                                                                                                                                                                                |
 
 ### OAuth.AuthorizationRequestOptions
 

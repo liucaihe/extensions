@@ -1,58 +1,69 @@
 import {
   Action,
   ActionPanel,
-  Alert,
-  confirmAlert,
   Detail,
-  Form,
   Icon,
   List,
+  popToRoot,
   showToast,
   Toast,
 } from '@raycast/api';
-import { useEffect, useState } from 'react';
 
-import Service, { Account, DnsRecord, Zone } from './service';
+import Service, { Zone } from './service';
 import {
-  getEmail,
-  getKey,
+  getToken,
   getSiteStatusIcon,
   getSiteUrl,
   handleNetworkError,
 } from './utils';
+import { CachePurgeView, purgeEverything } from './view-cache-purge';
+import { useCachedPromise } from '@raycast/utils';
 
-const service = new Service(getEmail(), getKey());
+const service = new Service(getToken());
 
 function Command() {
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [sites, setSites] = useState<Record<string, Zone[]>>({});
-  const [isLoading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function fetchSites() {
-      try {
-        const accounts = await service.listAccounts();
-        setAccounts(accounts);
-
-        const sites: Record<string, Zone[]> = {};
-        for (let i = 0; i < accounts.length; i++) {
-          const account = accounts[i];
-          const accountSites = await service.listZones(account);
-          sites[account.id] = accountSites;
-        }
-        setSites(sites);
-        setLoading(false);
-      } catch (e) {
-        setLoading(false);
-        handleNetworkError(e);
-      }
-    }
-
-    fetchSites();
-  }, []);
+  const {
+    isLoading,
+    data: { accounts, sites },
+  } = useCachedPromise(
+    async () => {
+      const accounts = await service.listAccounts();
+      // load zones of each account simultaneously
+      const sites: Record<string, Zone[]> = {};
+      const zoneRequests = accounts.map(async (account) => {
+        const zones = await service.listZones(account);
+        sites[account.id] = zones;
+      });
+      await Promise.all(zoneRequests);
+      return {
+        accounts,
+        sites,
+      };
+    },
+    [],
+    {
+      initialData: {
+        accounts: [],
+        sites: [],
+      },
+      onError: handleNetworkError,
+    },
+  );
 
   return (
     <List isLoading={isLoading}>
+      {!isLoading && !Object.keys(sites).length && (
+        <List.EmptyView
+          icon="no-sites.svg"
+          title="Add your website or application to Cloudflare"
+          description="Connect your domain to start sending web traffic through Cloudflare."
+          actions={
+            <ActionPanel>
+              <Action.OpenInBrowser url="https://dash.cloudflare.com/" />
+            </ActionPanel>
+          }
+        />
+      )}
       {Object.entries(sites)
         .filter((entry) => entry[1].length > 0)
         .map((entry) => {
@@ -65,29 +76,60 @@ function Command() {
                 <List.Item
                   actions={
                     <ActionPanel>
-                      <Action.Push
-                        icon={Icon.TextDocument}
-                        title="Show Details"
-                        target={<SiteView accountId={accountId} id={site.id} />}
-                      />
-                      <Action.Push
-                        icon={Icon.List}
-                        title="Show DNS Records"
-                        target={<DnsRecordView siteId={site.id} />}
-                      />
-                      <Action.Push
-                        icon={Icon.Hammer}
-                        title="Purge Files from Cache by URL"
-                        target={
-                          <CachePurgeView accountId={accountId} id={site.id} />
-                        }
-                        shortcut={{ modifiers: ['cmd'], key: 'p' }}
-                      />
-                      <Action.OpenInBrowser
-                        title="Open on Cloudflare"
-                        url={getSiteUrl(accountId, site.name)}
-                        shortcut={{ modifiers: ['cmd'], key: 'f' }}
-                      />
+                      <ActionPanel.Section>
+                        <Action.Push
+                          icon={Icon.Document}
+                          title="Show Details"
+                          target={
+                            <SiteView accountId={accountId} id={site.id} />
+                          }
+                        />
+                        <Action.Push
+                          icon={Icon.List}
+                          title="Show DNS Records"
+                          target={<DnsRecordView siteId={site.id} />}
+                        />
+                        <Action.OpenInBrowser
+                          title="Open on Cloudflare"
+                          url={getSiteUrl(accountId, site.name)}
+                          shortcut={{ modifiers: ['cmd'], key: 'o' }}
+                        />
+                      </ActionPanel.Section>
+                      <ActionPanel.Section>
+                        <Action.Push
+                          icon={Icon.Hammer}
+                          title="Purge Files From Cache by URL"
+                          target={
+                            <CachePurgeView
+                              accountId={accountId}
+                              id={site.id}
+                            />
+                          }
+                          shortcut={{ modifiers: ['cmd', 'shift'], key: 'e' }}
+                        />
+                        <Action
+                          icon={Icon.Hammer}
+                          title="Purge Everything From Cache"
+                          shortcut={{ modifiers: ['cmd'], key: 'e' }}
+                          onAction={async () => {
+                            purgeEverything(site);
+                          }}
+                        />
+                        <Action
+                          icon={Icon.ArrowClockwise}
+                          title="Reload Sites From Cloudflare"
+                          onAction={clearSiteCache}
+                          shortcut={{ modifiers: ['cmd'], key: 'r' }}
+                        />
+                      </ActionPanel.Section>
+                      <ActionPanel.Section>
+                        <Action.CopyToClipboard
+                          icon={Icon.CopyClipboard}
+                          content={site.name}
+                          title="Copy Site URL"
+                          shortcut={{ modifiers: ['cmd'], key: '.' }}
+                        />
+                      </ActionPanel.Section>
                     </ActionPanel>
                   }
                   icon={getSiteStatusIcon(site.status)}
@@ -102,7 +144,7 @@ function Command() {
   );
 }
 
-interface SiteProps {
+export interface SiteProps {
   accountId: string;
   id: string;
 }
@@ -110,23 +152,13 @@ interface SiteProps {
 function SiteView(props: SiteProps) {
   const { accountId, id } = props;
 
-  const [site, setSite] = useState<Zone | null>(null);
-  const [isLoading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function fetchSite() {
-      try {
-        const site = await service.getZone(id);
-        setSite(site);
-        setLoading(false);
-      } catch (e) {
-        setLoading(false);
-        handleNetworkError(e);
-      }
-    }
-
-    fetchSite();
-  }, []);
+  const { isLoading, data: site } = useCachedPromise(
+    async () => service.getZone(id),
+    [],
+    {
+      onError: handleNetworkError,
+    },
+  );
 
   if (!site) {
     return <Detail isLoading={isLoading} markdown="" />;
@@ -145,26 +177,52 @@ function SiteView(props: SiteProps) {
 
   ## Name servers
 
-  ${site.nameServers.map((server) => `* ${server}`).join('\n\n')}
+  ${site.name_servers.map((server) => `* ${server}`).join('\n\n')}
   `;
   return (
     <Detail
       actions={
         <ActionPanel>
-          <Action.Push
-            icon={Icon.List}
-            title="Show DNS Records"
-            target={<DnsRecordView siteId={site.id} />}
-          />
-          <Action.OpenInBrowser
-            title="Open on Cloudflare"
-            url={getSiteUrl(accountId, site.name)}
-            shortcut={{ modifiers: ['cmd'], key: 'f' }}
-          />
+          <ActionPanel.Section>
+            <Action.Push
+              icon={Icon.List}
+              title="Show DNS Records"
+              target={<DnsRecordView siteId={site.id} />}
+            />
+            <Action.OpenInBrowser
+              title="Open on Cloudflare"
+              url={getSiteUrl(accountId, site.name)}
+              shortcut={{ modifiers: ['cmd'], key: 'o' }}
+            />
+          </ActionPanel.Section>
+          <ActionPanel.Section>
+            <Action.CopyToClipboard
+              icon={Icon.CopyClipboard}
+              content={site.name}
+              title="Copy Site URL"
+              shortcut={{ modifiers: ['cmd'], key: '.' }}
+            />
+          </ActionPanel.Section>
         </ActionPanel>
       }
       isLoading={isLoading}
       markdown={markdown}
+      metadata={
+        <Detail.Metadata>
+          <Detail.Metadata.Label title="Modified" text={site.modified_on} />
+          <Detail.Metadata.Label title="Created" text={site.created_on} />
+          <Detail.Metadata.Label title="Activated" text={site.activated_on} />
+          <Detail.Metadata.Separator />
+          <Detail.Metadata.TagList title="Permissions">
+            {site.permissions.map((permission) => (
+              <Detail.Metadata.TagList.Item
+                key={permission}
+                text={permission}
+              />
+            ))}
+          </Detail.Metadata.TagList>
+        </Detail.Metadata>
+      }
     />
   );
 }
@@ -175,24 +233,14 @@ interface DnsRecordProps {
 
 function DnsRecordView(props: DnsRecordProps) {
   const { siteId } = props;
-
-  const [records, setRecords] = useState<DnsRecord[]>([]);
-  const [isLoading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function fetchRecords() {
-      try {
-        const records = await service.listDnsRecords(siteId);
-        setRecords(records);
-        setLoading(false);
-      } catch (e) {
-        setLoading(false);
-        handleNetworkError(e);
-      }
-    }
-
-    fetchRecords();
-  });
+  const { isLoading, data: records } = useCachedPromise(
+    async () => await service.listDnsRecords(siteId),
+    [],
+    {
+      initialData: [],
+      onError: handleNetworkError,
+    },
+  );
 
   return (
     <List isLoading={isLoading}>
@@ -201,67 +249,44 @@ function DnsRecordView(props: DnsRecordProps) {
           key={index}
           title={record.name}
           subtitle={record.content}
-          accessoryTitle={record.type}
+          accessories={[{ text: record.type }]}
+          actions={
+            <ActionPanel>
+              <ActionPanel.Section>
+                <Action.CopyToClipboard
+                  icon={Icon.CopyClipboard}
+                  content={record.name}
+                  title="Copy Record Name"
+                  shortcut={{ modifiers: ['cmd'], key: '.' }}
+                />
+                <Action.CopyToClipboard
+                  icon={Icon.CopyClipboard}
+                  content={record.content}
+                  title="Copy Record Value"
+                  shortcut={{ modifiers: ['cmd', 'shift'], key: '.' }}
+                />
+                <Action.CopyToClipboard
+                  icon={Icon.CopyClipboard}
+                  content={record.type}
+                  title="Copy Record Type"
+                  shortcut={{ modifiers: ['opt', 'shift'], key: '.' }}
+                />
+              </ActionPanel.Section>
+            </ActionPanel>
+          }
         />
       ))}
     </List>
   );
 }
 
-function CachePurgeView(props: SiteProps) {
-  const { id } = props;
-
-  return (
-    <Form
-      actions={
-        <ActionPanel>
-          <Action.SubmitForm
-            title="Purge Files"
-            onSubmit={(values) => clearUrlsFromCache(id, values.urls)}
-          />
-        </ActionPanel>
-      }
-    >
-      <Form.TextArea
-        id="urls"
-        title="List of URL(s)"
-        placeholder="Separate URL(s) one per line"
-      />
-    </Form>
-  );
-}
-
-async function clearUrlsFromCache(zoneId: string, urls: string) {
-  if (
-    !(await confirmAlert({
-      title: 'Do you really want to purge the files from cache?',
-      primaryAction: { title: 'Purge', style: Alert.ActionStyle.Destructive },
-    }))
-  ) {
-    return;
-  }
-
-  const toast = await showToast({
-    style: Toast.Style.Animated,
-    title: 'Purging URL(s)',
+async function clearSiteCache() {
+  service.clearCache();
+  showToast({
+    style: Toast.Style.Success,
+    title: 'Local site cache cleared',
   });
-
-  // Split URLs by newline
-  const urlList = urls.split('\n');
-
-  const result = await service.purgeFilesbyURL(zoneId, urlList);
-
-  if (result.success) {
-    toast.style = Toast.Style.Success;
-    toast.title = 'URL(s) purged';
-    return;
-  }
-
-  toast.style = Toast.Style.Failure;
-  toast.title = 'Failed to purge URL(s)';
-  if (result.errors.length > 0) {
-    toast.message = result.errors[0].message;
-  }
+  popToRoot({ clearSearchBar: true });
 }
 
 export default Command;

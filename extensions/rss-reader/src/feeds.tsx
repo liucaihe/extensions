@@ -2,42 +2,44 @@ import {
   ActionPanel,
   List,
   showToast,
-  ToastStyle,
   Icon,
   Color,
-  setLocalStorageItem,
-  getLocalStorageItem,
-  PushAction,
+  Action,
+  LocalStorage,
+  Toast,
+  Image,
+  confirmAlert,
+  Alert,
+  Keyboard,
 } from "@raycast/api";
-import { useEffect, useState } from "react";
+import { usePromise } from "@raycast/utils";
 import { StoriesList } from "./stories";
 import AddFeedForm from "./subscription-form";
+import RenameFeedForm from "./rename-form";
 
 export interface Feed {
   url: string;
   title: string;
-  icon: string;
+  link?: string;
+  icon: Image.ImageLike;
+  originalTitle?: string;
 }
 
 function FeedsList() {
-  const [feeds, setFeeds] = useState<Feed[]>([]);
-
-  async function fetchFeeds() {
-    setFeeds(await getFeeds());
-  }
-
-  useEffect(() => {
-    fetchFeeds();
-  }, []);
+  const { isLoading, revalidate, data: feeds = [] } = usePromise(getFeeds);
 
   const removeFeed = async (index: number) => {
     const removedFeed = feeds.at(index) as Feed;
     const feedItems = [...feeds];
     feedItems.splice(index, 1);
 
-    await setLocalStorageItem("feeds", JSON.stringify(feedItems));
-    setFeeds(feedItems);
-    await showToast(ToastStyle.Success, "Unsubscribed from the feed!", removedFeed.title);
+    await LocalStorage.setItem("feeds", JSON.stringify(feedItems));
+    await showToast({
+      style: Toast.Style.Success,
+      title: "Unsubscribed from the feed!",
+      message: removedFeed.title,
+    });
+    revalidate();
   };
 
   const moveFeed = (index: number, change: number) => {
@@ -46,16 +48,18 @@ function FeedsList() {
     }
     const feedItems = [...feeds] as Feed[];
     [feedItems[index], feedItems[index + change]] = [feedItems[index + change], feedItems[index]];
-    setFeeds(feedItems);
+    revalidate();
   };
 
   return (
     <List
+      searchBarPlaceholder="Search feeds..."
+      isLoading={isLoading}
       actions={
         <ActionPanel>
-          <PushAction
+          <Action.Push
             title="Add Feed"
-            target={<AddFeedForm callback={setFeeds} />}
+            target={<AddFeedForm />}
             icon={{ source: Icon.Plus, tintColor: Color.Green }}
             shortcut={{ modifiers: ["cmd"], key: "n" }}
           />
@@ -67,41 +71,57 @@ function FeedsList() {
           key={item.url}
           title={item.title}
           icon={item.icon}
+          accessories={[{ text: item.link }]}
           actions={
             <ActionPanel>
               <ActionPanel.Section title={item.title}>
-                <PushAction
-                  title="Oped Feed"
-                  target={<StoriesList feeds={[item]} />}
-                  icon={{ source: Icon.TextDocument, tintColor: Color.Green }}
-                />
+                <Action.Push title="View Stories" target={<StoriesList feeds={[item]} />} icon={Icon.AppWindowList} />
+                {item.link && <Action.OpenInBrowser url={item.link} />}
               </ActionPanel.Section>
               <ActionPanel.Section>
-                <PushAction
+                <Action.Push
                   title="Add Feed"
-                  target={<AddFeedForm callback={setFeeds} />}
-                  icon={{ source: Icon.Plus, tintColor: Color.Green }}
+                  target={<AddFeedForm />}
+                  icon={Icon.Plus}
                   shortcut={{ modifiers: ["cmd"], key: "n" }}
                 />
-                <ActionPanel.Item
+                <Action
+                  style={Action.Style.Destructive}
                   title="Remove Feed"
-                  onAction={() => removeFeed(index)}
+                  onAction={async () => {
+                    confirmAlert({
+                      title: "Delete Feed?",
+                      message: `Warning: This operation cannot be undone.`,
+                      icon: { source: Icon.Trash, tintColor: Color.Red },
+                      primaryAction: {
+                        title: "Delete",
+                        onAction: () => removeFeed(index),
+                        style: Alert.ActionStyle.Destructive,
+                      },
+                    });
+                  }}
                   icon={{ source: Icon.Trash, tintColor: Color.Red }}
                   shortcut={{ modifiers: ["cmd", "shift"], key: "d" }}
+                />
+                <Action.Push
+                  icon={Icon.Pencil}
+                  title="Rename Feed"
+                  target={<RenameFeedForm feed={item} feeds={feeds} onRename={revalidate} />}
+                  shortcut={Keyboard.Shortcut.Common.Edit}
                 />
               </ActionPanel.Section>
               {feeds.length > 1 && (
                 <ActionPanel.Section>
                   {index != 0 && (
-                    <ActionPanel.Item
-                      title="Move Up in List"
+                    <Action
+                      title="Move up in List"
                       onAction={() => moveFeed(index, -1)}
                       icon={{ source: Icon.ChevronUp }}
                       shortcut={{ modifiers: ["cmd", "shift"], key: "arrowUp" }}
                     />
                   )}
                   {index != feeds.length - 1 && (
-                    <ActionPanel.Item
+                    <Action
                       title="Move Down in List"
                       icon={{ source: Icon.ChevronDown }}
                       onAction={() => moveFeed(index, 1)}
@@ -119,7 +139,7 @@ function FeedsList() {
 }
 
 export async function getFeeds() {
-  const feedsString = (await getLocalStorageItem("feeds")) as string;
+  const feedsString = (await LocalStorage.getItem("feeds")) as string;
   if (feedsString === undefined) {
     return [];
   }

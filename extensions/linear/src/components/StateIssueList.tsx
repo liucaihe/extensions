@@ -1,7 +1,7 @@
 import { List } from "@raycast/api";
 import { MutatePromise } from "@raycast/utils";
-import { WorkflowState, IssuePriorityValue, User } from "@linear/sdk";
-import { groupBy } from "lodash";
+import { IssuePriorityValue, User } from "@linear/sdk";
+import { groupBy, uniqBy } from "lodash";
 
 import { IssueResult } from "../api/getIssues";
 
@@ -12,16 +12,19 @@ import IssueListItem from "./IssueListItem";
 type StateIssueListProps = {
   mutateList?: MutatePromise<IssueResult[] | undefined>;
   issues: IssueResult[] | undefined;
-  states: WorkflowState[];
   priorities: IssuePriorityValue[] | undefined;
-  users: User[] | undefined;
   me: User | undefined;
 };
 
-export default function StateIssueList({ mutateList, issues, states, priorities, me, users }: StateIssueListProps) {
-  if (!issues?.length || !states?.length) {
+export default function StateIssueList({ mutateList, issues, priorities, me }: StateIssueListProps) {
+  if (!issues || (issues && issues.length === 0)) {
     return null;
   }
+
+  const states = uniqBy(
+    issues.map((issue) => issue.state),
+    (state) => state.id,
+  );
 
   const orderedStates = getOrderedStates(states || [], [
     StateType.triage,
@@ -42,14 +45,7 @@ export default function StateIssueList({ mutateList, issues, states, priorities,
         return (
           <List.Section title={state.name} key={state.id} subtitle={numberOfIssues}>
             {groupedIssues[state.id]?.map((issue) => (
-              <IssueListItem
-                issue={issue}
-                key={issue.id}
-                mutateList={mutateList}
-                priorities={priorities}
-                users={users}
-                me={me}
-              />
+              <IssueListItem issue={issue} key={issue.id} mutateList={mutateList} priorities={priorities} me={me} />
             ))}
           </List.Section>
         );

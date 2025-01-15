@@ -1,31 +1,37 @@
 import useNews from "../hooks/useNews";
-import { Toast, showToast, List } from "@raycast/api";
-import { Article } from "../types/news.types";
 import ArticleComponent from "../components/Article";
 import { useState } from "react";
+import { getPreferenceValues, List } from "@raycast/api";
 
 const Articles = () => {
+  const { useLastValue, league } = getPreferenceValues<Preferences>();
   const [isShowingDetail, setIsShowingDetail] = useState<boolean>(false);
-
-  const data = useNews();
-
-  if (data.error) {
-    showToast(Toast.Style.Failure, "Failed to get news");
-    data.loading = false;
-  }
+  const [selectedLeague, setSelectedLeague] = useState<string>(league);
+  const { data, isLoading } = useNews(selectedLeague);
 
   return (
-    <List isLoading={data.loading} isShowingDetail={isShowingDetail}>
-      {data.news.map((article: Article) => {
-        return (
-          <ArticleComponent
-            key={article.title}
-            article={article}
-            isShowingDetail={isShowingDetail}
-            setIsShowingDetail={setIsShowingDetail}
-          />
-        );
-      })}
+    <List
+      isLoading={isLoading}
+      isShowingDetail={isShowingDetail}
+      searchBarAccessory={
+        <List.Dropdown
+          tooltip="Select League"
+          onChange={setSelectedLeague}
+          {...(useLastValue ? { storeValue: true } : { defaultValue: league })}
+        >
+          <List.Dropdown.Item title="NBA" value="nba" />
+          <List.Dropdown.Item title="WNBA" value="wnba" />
+        </List.Dropdown>
+      }
+    >
+      {data?.map((article) => (
+        <ArticleComponent
+          key={article.title}
+          article={article}
+          isShowingDetail={isShowingDetail}
+          setIsShowingDetail={setIsShowingDetail}
+        />
+      ))}
     </List>
   );
 };

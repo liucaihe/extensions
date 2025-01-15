@@ -1,117 +1,160 @@
-import { List, getPreferenceValues, ActionPanel, showToast, Toast, Action, Icon } from "@raycast/api";
-import { ReactElement, useEffect, useState } from "react";
-import translate from "@vitalets/google-translate-api";
-import { supportedLanguagesByCode, LanguageCode } from "./languages";
+import React, { ReactElement, useState } from "react";
+import { List, showToast, Toast, Action, Icon, ActionPanel } from "@raycast/api";
+import { usePromise } from "@raycast/utils";
+import { useDebouncedValue, useSelectedLanguagesSet, useTextState } from "./hooks";
+import { getLanguageFlag, supportedLanguagesByCode } from "./languages";
+import { LanguageManagerListDropdown } from "./LanguagesManager";
+import { doubleWayTranslate, simpleTranslate, playTTS } from "./simple-translate";
+import { ConfigurableCopyPasteActions, OpenOnGoogleTranslateWebsiteAction, ToggleFullTextAction } from "./actions";
+import { LanguageCodeSet } from "./types";
 
-let count = 0;
-
-export default function Command(): ReactElement {
-  const [isLoading, setIsLoading] = useState(false);
-  const [toTranslate, setToTranslate] = useState("");
-  const [results, setResults] = useState<
-    { text: string; languages: string; source_language: string; target_language: string }[]
-  >([]);
-  const [isShowingDetail, setIsShowingDetail] = useState(false);
-
-  useEffect(() => {
-    if (toTranslate === "") {
-      return;
-    }
-
-    count++;
-    const localCount = count;
-
-    setIsLoading(true);
-    setResults([]);
-
-    const preferences = getPreferenceValues<{
-      lang1: LanguageCode;
-      lang2: LanguageCode;
-    }>();
-
-    const promises = Promise.all([
-      translate(toTranslate, {
-        from: preferences.lang1,
-        to: preferences.lang2,
-      }),
-      translate(toTranslate, {
-        from: preferences.lang2,
-        to: preferences.lang1,
-      }),
-    ]);
-
-    promises
-      .then((res) => {
-        if (localCount === count) {
-          const lang1Rep =
-            supportedLanguagesByCode[preferences.lang1].flag ?? supportedLanguagesByCode[preferences.lang1].code;
-          const lang2Rep =
-            supportedLanguagesByCode[preferences.lang2].flag ?? supportedLanguagesByCode[preferences.lang2].code;
-          setResults([
-            {
-              text: res[0].text,
-              languages: `${lang1Rep} -> ${lang2Rep}`,
-              source_language: supportedLanguagesByCode[preferences.lang1].code,
-              target_language: supportedLanguagesByCode[preferences.lang2].code,
-            },
-            {
-              text: res[1].text,
-              languages: `${lang2Rep} -> ${lang1Rep}`,
-              source_language: supportedLanguagesByCode[preferences.lang2].code,
-              target_language: supportedLanguagesByCode[preferences.lang1].code,
-            },
-          ]);
-        }
-      })
-      .catch((errors) => {
-        showToast(Toast.Style.Failure, "Could not translate", errors);
-      })
-      .then(() => {
-        setIsLoading(false);
+const DoubleWayTranslateItem: React.FC<{
+  value: string;
+  selectedLanguageSet: LanguageCodeSet;
+  toggleShowingDetail: () => void;
+}> = ({ toggleShowingDetail, value, selectedLanguageSet }) => {
+  const { data: results } = usePromise(doubleWayTranslate, [value, selectedLanguageSet], {
+    onError(error) {
+      showToast({
+        style: Toast.Style.Failure,
+        title: "Could not translate",
+        message: error.toString(),
       });
-  }, [toTranslate]);
+    },
+  });
+
+  return (
+    <>
+      {results?.map((r, index) => {
+        const langFrom = supportedLanguagesByCode[r.langFrom];
+        const langTo = supportedLanguagesByCode[r.langTo];
+        const languages = `${getLanguageFlag(langFrom, langFrom?.code)} -> ${getLanguageFlag(langTo, langTo?.code)}`;
+        const tooltip = `${langFrom?.name ?? langFrom?.code} -> ${langTo?.name ?? langTo?.code}`;
+        return (
+          <React.Fragment key={index}>
+            <List.Item
+              title={r.translatedText}
+              accessories={[{ text: languages, tooltip: tooltip }]}
+              detail={<List.Item.Detail markdown={r.translatedText} />}
+              actions={
+                <ActionPanel>
+                  <ActionPanel.Section>
+                    <ConfigurableCopyPasteActions defaultActionsPrefix="Translation" value={r.translatedText} />
+                    <ToggleFullTextAction onAction={() => toggleShowingDetail()} />
+                    <Action
+                      title="Play Text-To-Speech"
+                      icon={Icon.Play}
+                      shortcut={{ modifiers: ["cmd"], key: "t" }}
+                      onAction={() => playTTS(r.translatedText, r.langTo)}
+                    />
+                    <OpenOnGoogleTranslateWebsiteAction translationText={value} translation={r} />
+                  </ActionPanel.Section>
+                </ActionPanel>
+              }
+            />
+            {r.pronunciationText && (
+              <List.Item
+                title={r.pronunciationText}
+                accessories={[{ text: languages, tooltip: tooltip }]}
+                detail={<List.Item.Detail markdown={r.pronunciationText} />}
+                actions={
+                  <ActionPanel>
+                    <ActionPanel.Section>
+                      <ConfigurableCopyPasteActions value={r.pronunciationText} />
+                      <ToggleFullTextAction onAction={() => toggleShowingDetail()} />
+                      <OpenOnGoogleTranslateWebsiteAction translationText={value} translation={r} />
+                    </ActionPanel.Section>
+                  </ActionPanel>
+                }
+              />
+            )}
+          </React.Fragment>
+        );
+      })}
+    </>
+  );
+};
+
+const TranslateItem: React.FC<{
+  value: string;
+  selectedLanguageSet: LanguageCodeSet;
+  toggleShowingDetail: () => void;
+}> = ({ toggleShowingDetail, value, selectedLanguageSet }) => {
+  const { data: result, isLoading } = usePromise(simpleTranslate, [value, selectedLanguageSet], {
+    onError(error) {
+      showToast({
+        style: Toast.Style.Failure,
+        title: "Could not translate",
+        message: error.toString(),
+      });
+    },
+  });
+
+  const langFromCode = result?.langFrom ?? selectedLanguageSet.langFrom;
+  const langToCode = result?.langTo ?? selectedLanguageSet.langTo[0];
+
+  const langFrom = supportedLanguagesByCode[langFromCode];
+  const langTo = supportedLanguagesByCode[langToCode];
+  const languages = `${getLanguageFlag(langFrom, langFrom?.code)} -> ${getLanguageFlag(langTo, langTo?.code)}`;
+  const tooltip = `${langFrom?.name ?? langFrom?.code} -> ${langTo?.name ?? langTo?.code}`;
+
+  return (
+    <List.Item
+      title={result?.translatedText ?? ""}
+      subtitle={isLoading ? "Translating..." : undefined}
+      accessories={[{ text: languages, tooltip: tooltip }]}
+      detail={<List.Item.Detail markdown={result?.translatedText ?? ""} />}
+      actions={
+        <ActionPanel>
+          <ActionPanel.Section>
+            <ConfigurableCopyPasteActions defaultActionsPrefix="Translation" value={result?.translatedText ?? ""} />
+            <ToggleFullTextAction onAction={() => toggleShowingDetail()} />
+            {result && (
+              <Action
+                title="Play Text-To-Speech"
+                icon={Icon.Play}
+                shortcut={{ modifiers: ["cmd"], key: "t" }}
+                onAction={() => playTTS(result.translatedText, langToCode)}
+              />
+            )}
+            {result && <OpenOnGoogleTranslateWebsiteAction translationText={value} translation={result} />}
+          </ActionPanel.Section>
+        </ActionPanel>
+      }
+    />
+  );
+};
+
+export default function Translate(): ReactElement {
+  const [selectedLanguageSet] = useSelectedLanguagesSet();
+  const [isShowingDetail, setIsShowingDetail] = useState(false);
+  const [text, setText] = useTextState();
+  const debouncedValue = useDebouncedValue(text, 500);
 
   return (
     <List
       searchBarPlaceholder="Enter text to translate"
-      onSearchTextChange={setToTranslate}
-      isLoading={isLoading}
+      searchText={text}
+      onSearchTextChange={setText}
       isShowingDetail={isShowingDetail}
-      throttle
+      searchBarAccessory={<LanguageManagerListDropdown />}
     >
-      {results.map((r, index) => (
-        <List.Item
-          key={index}
-          title={r.text}
-          accessoryTitle={r.languages}
-          detail={<List.Item.Detail markdown={r.text} />}
-          actions={
-            <ActionPanel>
-              <ActionPanel.Section>
-                <Action.CopyToClipboard title="Copy" content={r.text} />
-                <Action
-                  title="Toggle Full Text"
-                  icon={Icon.Text}
-                  onAction={() => setIsShowingDetail(!isShowingDetail)}
-                />
-                <Action.OpenInBrowser
-                  title="Open in Google Translate"
-                  shortcut={{ modifiers: ["opt"], key: "enter" }}
-                  url={
-                    "https://translate.google.com/?sl=" +
-                    r.source_language +
-                    "&tl=" +
-                    r.target_language +
-                    "&text=" +
-                    toTranslate +
-                    "&op=translate"
-                  }
-                />
-              </ActionPanel.Section>
-            </ActionPanel>
-          }
+      {selectedLanguageSet.langTo.length === 1 ? (
+        <DoubleWayTranslateItem
+          value={debouncedValue}
+          selectedLanguageSet={selectedLanguageSet}
+          toggleShowingDetail={() => setIsShowingDetail(!isShowingDetail)}
         />
-      ))}
+      ) : (
+        selectedLanguageSet.langTo.map((langTo, index) => (
+          <TranslateItem
+            key={`${index} ${langTo}`}
+            value={debouncedValue}
+            selectedLanguageSet={{ langFrom: selectedLanguageSet.langFrom, langTo: [langTo] }}
+            toggleShowingDetail={() => setIsShowingDetail(!isShowingDetail)}
+          />
+        ))
+      )}
     </List>
   );
 }

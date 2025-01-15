@@ -9,6 +9,14 @@
     "Communication",
     "Productivity"
   ],
+  "keywords": [
+    "chinese",
+    "simplified",
+    "traditional",
+    "pinyin",
+    "conversion",
+    "character"
+  ],
   "license": "MIT",
   "commands": [
     {
@@ -16,28 +24,96 @@
       "title": "Simplified to Traditional",
       "icon": "zh2tw.png",
       "description": "Convert Simplified Chinese to Traditional Chinese from selection or clipboard.",
-      "mode": "no-view"
+      "mode": "no-view",
+      "arguments": [
+        {
+          "name": "text",
+          "type": "text",
+          "required": false,
+          "placeholder": "Text"
+        }
+      ],
+      "preferences": [
+        {
+          "name": "simplifiedToTraditionalQuoteStyle",
+          "type": "checkbox",
+          "required": false,
+          "description": "Simplified Chinese quotation marks ‘’ / “” to Traditional Chinese quotation marks 「」/『』.",
+          "default": true,
+          "label": "Convert Quotation Marks"
+        }
+      ]
     },
     {
       "name": "traditional-to-simplified",
       "title": "Traditional to Simplified",
       "icon": "tw2zh.png",
       "description": "Convert Traditional Chinese to Simplified Chinese from selection or clipboard.",
-      "mode": "no-view"
+      "mode": "no-view",
+      "arguments": [
+        {
+          "name": "text",
+          "type": "text",
+          "required": false,
+          "placeholder": "Text"
+        }
+      ],
+      "preferences": [
+        {
+          "name": "traditionalToSimplifiedQuoteStyle",
+          "type": "checkbox",
+          "required": false,
+          "description": "Traditional Chinese quotation marks 「」/『』 to Simplified Chinese quotation marks ‘’ / “”.",
+          "default": true,
+          "label": "Convert Quotation Marks"
+        }
+      ]
     },
     {
       "name": "chinese-to-pinyin",
       "title": "Chinese to Pinyin",
       "icon": "zh2pinyin.png",
       "description": "Convert Chinese to pinyin from selection or clipboard.",
-      "mode": "no-view"
+      "mode": "no-view",
+      "arguments": [
+        {
+          "name": "text",
+          "type": "text",
+          "required": false,
+          "placeholder": "Text"
+        }
+      ],
+      "preferences": [
+        {
+          "name": "tones",
+          "type": "dropdown",
+          "required": false,
+          "title": "Tones",
+          "description": "Pinyin tones symbol display form.",
+          "default": "",
+          "data": [
+            {
+              "title": "No Tones",
+              "value": "none"
+            },
+            {
+              "title": "Symbol Tones",
+              "value": "sym"
+            },
+            {
+              "title": "Number Tones",
+              "value": "num"
+            }
+          ]
+        }
+      ]
     }
   ],
   "preferences": [
     {
       "name": "actionAfterConversion",
       "type": "dropdown",
-      "required": true,
+      "required": false,
       "title": "Action After Conversion",
       "description": "Paste the result or copy the result to the clipboard after converting text.",
       "default": "Paste",
@@ -54,19 +130,19 @@
     }
   ],
   "dependencies": {
-    "@raycast/api": "^1.36.1",
-    "cjk-conv": "^1.2.139",
-    "pinyin-pro": "^3.10.1"
+    "@raycast/api": "^1.76.0",
+    "cjk-conv": "^1.2.146",
+    "pinyin-pro": "^3.22.0"
   },
   "devDependencies": {
-    "@types/node": "~16.10.0",
-    "@types/react": "^17.0.28",
-    "@typescript-eslint/eslint-plugin": "^5.0.0",
-    "@typescript-eslint/parser": "^5.0.0",
-    "eslint": "^7.32.0",
-    "eslint-config-prettier": "^8.3.0",
-    "prettier": "^2.5.1",
-    "typescript": "^4.4.3"
+    "@types/node": "~20.14.2",
+    "@types/react": "^18.3.3",
+    "@typescript-eslint/eslint-plugin": "^7.12.0",
+    "@typescript-eslint/parser": "^7.12.0",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.3.1",
+    "typescript": "^5.4.5"
   },
   "scripts": {
     "build": "ray build -e dist",

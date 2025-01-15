@@ -85,7 +85,7 @@ export default function AddCountdownDate(props: {
               });
               await LocalStorage.setItem(
                 LocalStorageKey.COUNTDOWN_DATE_KEY,
-                JSON.stringify([...futureDate, ...lastDate])
+                JSON.stringify([...futureDate, ...lastDate]),
               );
               setRefresh(now.getTime());
               pop();
@@ -103,6 +103,9 @@ export default function AddCountdownDate(props: {
         error={dateError}
         type={Form.DatePicker.Type.Date}
         onChange={(newValue) => {
+          if (newValue === null) {
+            return;
+          }
           setDate(newValue);
           if (newValue !== undefined) {
             setDateError(undefined);

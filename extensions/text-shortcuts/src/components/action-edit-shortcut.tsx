@@ -1,7 +1,7 @@
-import React from "react";
-import { Shortcut, ShortcutSource } from "../util/shortcut";
 import { Action, ActionPanel, confirmAlert, Icon, LocalStorage, showToast, Toast } from "@raycast/api";
+import React from "react";
 import CreateShortcut from "../create-shortcut";
+import { Shortcut, ShortcutSource } from "../util/shortcut";
 
 export function ActionEditShortcut(props: {
   shortcut: Shortcut;
@@ -14,7 +14,7 @@ export function ActionEditShortcut(props: {
     <ActionPanel.Section>
       <Action.Push
         title={"Create Shortcut"}
-        icon={Icon.Download}
+        icon={Icon.PlusCircle}
         shortcut={{ modifiers: ["cmd"], key: "n" }}
         target={<CreateShortcut shortcut={undefined} setRefresh={setRefresh} />}
       />

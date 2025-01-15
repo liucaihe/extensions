@@ -1,33 +1,31 @@
-import { groupBy, partition, uniqBy } from "lodash";
-import { useMemo } from "react";
-
-import { getProjects, MilestoneResult } from "../api/getProjects";
 import { useCachedPromise } from "@raycast/utils";
+import type { PaginationOptions } from "@raycast/utils/dist/types";
+import { getProjects, type ProjectResult } from "../api/getProjects";
 
-export default function useProjects(teamId?: string, config?: { execute?: boolean }) {
-  const { data, error, isLoading, mutate } = useCachedPromise(getProjects, [teamId], {
-    execute: config?.execute !== false && !!teamId,
-  });
-
-  const { upcomingProjects, projectsByMilestoneId, milestones } = useMemo(() => {
-    const [milestonesProjects, upcomingProjects] = partition(data, (project) => project.milestone);
-    const projectsByMilestoneId = groupBy(milestonesProjects, (project) => project.milestone?.id);
-    const milestones = uniqBy(
-      milestonesProjects.map((project) => project.milestone),
-      "id"
-    ) as MilestoneResult[];
-    milestones.sort((a, b) => a.sortOrder - b.sortOrder);
-
-    return { upcomingProjects, projectsByMilestoneId, milestones };
-  }, [data]);
+export default function useProjects(
+  teamId?: string,
+  config?: { execute?: boolean; searchText?: string; pageSize?: number },
+) {
+  const { data, error, isLoading, mutate, pagination } = useCachedPromise(
+    (teamId?: string, searchText?: string) => (pagination: PaginationOptions<ProjectResult[]>) =>
+      getProjects({
+        teamId,
+        searchText,
+        after: pagination.cursor,
+        first: config?.pageSize,
+      }),
+    [teamId, config?.searchText],
+    {
+      execute: config?.execute !== false,
+      keepPreviousData: true,
+    },
+  );
 
   return {
     projects: data,
     isLoadingProjects: (!data && !error) || isLoading,
     projectsError: error,
-    upcomingProjects,
-    projectsByMilestoneId,
-    milestones,
     mutateProjects: mutate,
+    pagination,
   };
 }
